@@ -16,7 +16,8 @@
 
 void set_nonblocking(int fd)
 {
-	int flags = fcntl(fd, F_GETFL, 0); // Check validity of flag
+#ifdef __linux__
+	int flags = fcntl(fd, F_GETFL, 0); // Check validity of flag only availible on linux
 	if (flags == -1)
 	{
 		perror("pollserver: fcntl F_GETFL error");
@@ -32,6 +33,12 @@ void set_nonblocking(int fd)
 			perror("pollserver: fcntl F_SETFL error");
 		}
 	}
+#elif defined(__APPLE__)
+	if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1)
+	{
+		perror("pollserver: fcntl O_NONBLOCK error");
+	}
+#endif
 }
 
 // Get sockaddr, IPv4 or IPv6:
