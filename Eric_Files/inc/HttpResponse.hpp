@@ -56,7 +56,7 @@ class HttpResponse : public AHttpMessage
                     return "Invalid version";
                 }
         };
-        
+
         class InvalidStatus : public std::exception
         {
             public:
@@ -71,7 +71,7 @@ class HttpResponse : public AHttpMessage
             public:
                 virtual const char *what() const throw()
                 {
-                    return "Invalid reason";
+                    return ("Invalid reason");
                 }
         };
 };

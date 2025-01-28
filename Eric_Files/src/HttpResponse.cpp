@@ -111,10 +111,8 @@ void    HttpResponse::parse(const std::string &raw)
     this->parseStartLine(line);
 
     // Parse the headers
-    while (std::getline(stream, line) && line != "\r")
+    while (std::getline(stream, line) && !line.empty())
         this->parseHeader(line);
-
-    //Control last \r\n
 
     // Parse the body
     std::string body;
