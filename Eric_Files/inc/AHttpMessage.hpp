@@ -14,7 +14,6 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <algorithm>
 #include <cctype>
 #include <sstream>
 #include <stdexcept>
@@ -23,27 +22,27 @@
 class AHttpMessage
 {
 protected:
-    std::map<std::string, std::vector<std::string> > _headers;
-    std::string _body;
+    std::map<std::string, std::vector<std::string> >	_headers;
+    std::string											_body;
 
     static std::string trim(const std::string &s)
     {
         size_t start = 0;
-        while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start])))
-            start++;
-
         size_t end = s.size();
-        while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1])))
-            end--;
 
+        while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start])))
+        	start++;
+        while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1])))
+        	end--;
         return (s.substr(start, end - start));
     }
 
     static std::string toLower(const std::string &s)
     {
         std::string result = s;
-        std::transform(result.begin(), result.end(), result.begin(),
-                       [](unsigned char c){ return static_cast<unsigned char>(std::tolower(c)); });
+
+        for (size_t i = 0; i < s.size(); i++)
+			result[i] = std::tolower(s[i]);
         return (result);
     }
 
@@ -132,30 +131,31 @@ public:
     bool hasHeader(const std::string &key) const
     {
         std::string lowerKey = toLower(trim(key));
+
         return (this->_headers.find(lowerKey) != this->_headers.end());
     }
 
     const std::string &getHeader(const std::string &key) const
     {
         std::string lowerKey = toLower(trim(key));
+
         return (this->_headers.at(lowerKey).at(0));
     }
 
     const std::vector<std::string> &getHeaderValues(const std::string &key) const
     {
         std::string lowerKey = toLower(trim(key));
+
         return (this->_headers.at(lowerKey));
     }
 
     std::string getHeaderOrDefault(const std::string &key, const std::string &defaultValue) const
     {
         std::string lowerKey = toLower(trim(key));
-        std::map<std::string, std::vector<std::string> >::const_iterator it =
-            this->_headers.find(lowerKey);
+        std::map<std::string, std::vector<std::string> >::const_iterator it = this->_headers.find(lowerKey);
 
-        if (it == this->_headers.end() || it->second.empty()) {
-            return (defaultValue); // key not found or no values
-        }
+        if (it == this->_headers.end() || it->second.empty())
+            return (defaultValue);
         return (it->second[0]);
     }
 

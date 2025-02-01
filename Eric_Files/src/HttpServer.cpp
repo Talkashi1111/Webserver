@@ -96,12 +96,6 @@ private:
             if (request.getTarget() == "/")
                 request.setTarget("/index.html");
 
-            // Log the parsed request
-            logger.log("Parsed Request: ");
-            logger.log("Method: " + request.getMethod());
-            logger.log("Target: " + request.getTarget());
-            logger.log("Version: " + request.getVersion());
-
             std::string target = "data/www" + request.getTarget();
 
             // Generate a response

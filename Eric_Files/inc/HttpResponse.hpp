@@ -22,7 +22,6 @@ class HttpResponse : public AHttpMessage
         // Private Methods
         void                validateVersion(const std::string &version);
         void                validateStatus(const int status);
-        void                validateReason(const std::string &reason);
 
         void                parseStartLine(const std::string &line);
 
@@ -48,32 +47,12 @@ class HttpResponse : public AHttpMessage
         std::string         serialize() const;
 
         // Exceptions
-        class InvalidVersion : public std::exception
-        {
-            public:
-                virtual const char *what() const throw()
-                {
-                    return "Invalid version";
-                }
-        };
-
-        class InvalidStatus : public std::exception
-        {
-            public:
-                virtual const char *what() const throw()
-                {
-                    return "Invalid status";
-                }
-        };
-
-        class InvalidReason : public std::exception
-        {
-            public:
-                virtual const char *what() const throw()
-                {
-                    return ("Invalid reason");
-                }
-        };
+        class InvalidResponse : public std::runtime_error
+		{
+			public:
+				explicit InvalidResponse(const std::string &msg)
+					: std::runtime_error("Invalid HTTP response: " + msg) {}
+		};
 };
 
 #endif

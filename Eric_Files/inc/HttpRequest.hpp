@@ -16,9 +16,9 @@ class HttpRequest : public AHttpMessage
 {
     private:
         // Private Attributes
-        std::string _method;
-        std::string _target;
-        std::string _version;
+        std::string	_method;
+        std::string	_target;
+        std::string	_version;
 
         // Private Methods
         void                validateMethod(const std::string &method);
@@ -49,31 +49,11 @@ class HttpRequest : public AHttpMessage
         std::string         serialize() const;
 
         // Exceptions
-        class InvalidMethod : public std::exception
+        class InvalidRequest : public std::runtime_error
         {
             public:
-                virtual const char *what() const throw()
-                {
-                    return "Invalid method";
-                }
-        };
-
-        class InvalidTarget : public std::exception
-        {
-            public:
-                virtual const char *what() const throw()
-                {
-                    return "Invalid target";
-                }
-        };
-
-        class InvalidVersion : public std::exception
-        {
-            public:
-                virtual const char *what() const throw()
-                {
-                    return "Invalid version";
-                }
+                explicit InvalidRequest(const std::string &msg)
+					 : std::runtime_error("Invalid HTTP Request" + msg) {}
         };
 };
 
