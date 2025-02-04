@@ -9,15 +9,16 @@
 // _body: a string representing the body of the message.
 
 #ifndef AHTTPMESSAGE_HPP
-#define AHTTPMESSAGE_HPP
+# define AHTTPMESSAGE_HPP
 
-#include <string>
-#include <map>
-#include <vector>
-#include <cctype>
-#include <sstream>
-#include <stdexcept>
-#include <iostream>
+# include <string>
+# include <map>
+# include <vector>
+# include <cctype>
+# include <sstream>
+# include <stdexcept>
+# include <iostream>
+# include "utils.hpp"
 
 class AHttpMessage
 {

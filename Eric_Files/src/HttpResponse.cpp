@@ -70,7 +70,7 @@ void    HttpResponse::validateVersion(const std::string &version)
 void    HttpResponse::validateStatus(const int status)
 {
     if (status < 100 || status > 599)
-        throw InvalidResponse("Invalid status code: " + std::to_string(status));
+        throw InvalidResponse("Invalid status code: " + toString(status));
 }
 
 void    HttpResponse::parseStartLine(const std::string &line)
@@ -111,8 +111,8 @@ void    HttpResponse::parse(const std::string &raw)
 		throw InvalidResponse("Failed to read HTTP response line");
 
 	// Remove the carriage return if it exists
-	if (!line.empty() && line.back() == '\r')
-		line.pop_back();
+	if (!line.empty() && line[line.size() - 1] == '\r')
+		line.erase(line.size() - 1);
 
     this->parseStartLine(line);
 
@@ -120,8 +120,8 @@ void    HttpResponse::parse(const std::string &raw)
     while (std::getline(stream, line) && line != "\r")
 	{
 		// Remove the carriage return if it exists
-		if (!line.empty() && line.back() == '\r')
-			line.pop_back();
+		if (!line.empty() && line[line.size() - 1] == '\r')
+			line.erase(line.size() - 1);
 
         this->parseHeader(line);
 	}

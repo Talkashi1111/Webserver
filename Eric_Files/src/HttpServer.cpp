@@ -88,7 +88,8 @@ private:
         std::string rawRequest(buffer, bytesRead);
         logger.log("Received Request:\n" + rawRequest);
 
-        try {
+        try
+        {
             // Parse the HTTP request
             HttpRequest request;
             request.parse(rawRequest);
@@ -102,7 +103,6 @@ private:
             std::ifstream file(target.c_str());
             std::ifstream file404("data/www/error/404.html");
             HttpResponse response;
-            std::stringstream ss;
 
             if (file.is_open())
             {
@@ -110,9 +110,8 @@ private:
                 response.setStatus(200);
                 response.setReason("OK");
                 std::string body((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-                ss << body.size();
                 response.setHeader("Content-Type", "text/html");
-                response.setHeader("Content-Length", ss.str());
+                response.setHeader("Content-Length", toString(body.size()));
                 response.setBody(body);
             }
             else
@@ -121,9 +120,8 @@ private:
                 response.setStatus(404);
                 response.setReason("Not Found");
                 std::string body((std::istreambuf_iterator<char>(file404)), std::istreambuf_iterator<char>());
-                ss << body.size();
                 response.setHeader("Content-Type", "text/html");
-                response.setHeader("Content-Length", ss.str());
+                response.setHeader("Content-Length", toString(body.size()));
                 response.setBody(body);
             }
 
@@ -133,7 +131,7 @@ private:
 
             send(clientSocket, responseString.c_str(), responseString.size(), 0);
         } catch (const std::exception& e) {
-            logger.log("Error while processing request: " + std::string(e.what()));
+            logger.log("Error: " + std::string(e.what()));
         }
 
         close(clientSocket);

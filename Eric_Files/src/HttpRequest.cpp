@@ -115,8 +115,8 @@ void    HttpRequest::parse(const std::string &raw)
 			throw InvalidRequest("Failed to parse request line");
 
 		// Remove the carriage return if it exists
-		if (!line.empty() && line.back() == '\r')
-			line.pop_back();
+		if (!line.empty() && line[line.size() - 1] == '\r')
+			line.erase(line.size() - 1);
 
 		this->parseStartLine(line);
 
@@ -124,8 +124,8 @@ void    HttpRequest::parse(const std::string &raw)
 		while (std::getline(stream, line) && line != "\r")
 		{
 			// Remove the carriage return if it exists
-			if (!line.empty() && line.back() == '\r')
-				line.pop_back();
+			if (!line.empty() && line[line.size() - 1] == '\r')
+			line.erase(line.size() - 1);
 
 			this->parseHeader(line);
 		}
