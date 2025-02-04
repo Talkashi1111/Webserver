@@ -11,10 +11,8 @@
 #ifndef AHTTPMESSAGE_HPP
 # define AHTTPMESSAGE_HPP
 
-# include <string>
 # include <map>
 # include <vector>
-# include <cctype>
 # include <sstream>
 # include <stdexcept>
 # include <iostream>
