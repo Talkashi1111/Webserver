@@ -56,7 +56,7 @@ This output means that during the test:
 - A total of **24,318 requests** were made.
 - There were **no connection, read, or write errors** (only 3 timeouts were reported).
 - The server achieved a throughput of approximately **7,522 requests per second** and transferred around **1.14MB per second**.
-```
+
 
 
 # Revised Listening Socket Management
@@ -106,7 +106,7 @@ After processing, all the listener file descriptors (both IPv4 and IPv6) are mer
 ## Result
 - The webserver now uses `epoll()` for event handling.
 - This change ensures efficient monitoring of all listener sockets, even as their number increases.
-```
+
 ## TODO
 1. keep track on new connection in order to close the fd of this connection after finishing. (right now there is a leak of open fd).
 2. to pack it up in a class form that will be more CPP ( one class that will contain : epollfd, listeners, event_struct, and new client connection).
