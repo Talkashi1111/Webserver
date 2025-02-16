@@ -1,14 +1,7 @@
-#include "server.hpp"
-
-void sigint_handler(int)
-{
-	g_running = false;
-}
+#include "server_poll.hpp"
 
 void set_nonblocking(int fd)
 {
-	// TODO: didn't use F_GETFL because by default it appends new flags to the existing ones
-	// so not sure if I should use it or not.
 	if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1)
 	{
 		int err = errno;
@@ -90,8 +83,8 @@ void close_all_sockets(bound_addrs_t &bound_addrs4, bound_addrs_t &bound_addrs6)
 	}
 }
 
-bool check_binding(const std::string &all_interfaces, const std::string &port,
-				   const std::string &straddr, bound_addrs_t &bound_addrs)
+bool check_binding(const std::string& all_interfaces, const std::string& port,
+					const std::string& straddr, bound_addrs_t& bound_addrs)
 {
 	bound_addrs_t::iterator bp = bound_addrs.find(port);
 	if (bp != bound_addrs.end()) // if port in map
@@ -115,7 +108,7 @@ bool check_binding(const std::string &all_interfaces, const std::string &port,
 	return false;
 }
 
-std::set<int> get_fd_set(bound_addrs_t &bound_addrs4, bound_addrs_t &bound_addrs6)
+std::set<int> get_fd_set(bound_addrs_t& bound_addrs4, bound_addrs_t& bound_addrs6)
 {
 	std::set<int> fd_set;
 	for (bound_addrs_t::iterator bp = bound_addrs4.begin(); bp != bound_addrs4.end(); ++bp)
@@ -191,11 +184,7 @@ std::set<int> get_listener_socket(int argc, char *argv[])
 			{
 				int err = errno;
 				strerr = "bind(" + straddr + ":" + argv[i + 1] + "): " + strerror(err);
-				if (close(listener) == -1)
-				{
-					err = errno;
-					std::cerr << "close (" << listener << "): " << strerror(err) << std::endl;
-				}
+				close(listener);
 				close_all_sockets(bound_addrs4, bound_addrs6);
 				freeaddrinfo(ai);
 				throw std::runtime_error(strerr);
@@ -209,11 +198,7 @@ std::set<int> get_listener_socket(int argc, char *argv[])
 			{
 				int err = errno;
 				strerr = "listen(" + straddr + ":" + argv[i + 1] + "): " + strerror(err);
-				if (close(listener) == -1)
-				{
-					err = errno;
-					std::cerr << "close (" << listener << "): " << strerror(err) << std::endl;
-				}
+				close(listener);
 				close_all_sockets(bound_addrs4, bound_addrs6);
 				freeaddrinfo(ai);
 				throw std::runtime_error(strerr);
@@ -229,7 +214,37 @@ std::set<int> get_listener_socket(int argc, char *argv[])
 	return get_fd_set(bound_addrs4, bound_addrs6);
 }
 
-void handle_new_connection(int epfd, int listener)
+// Add a new file descriptor to the set
+void add_to_pfds(std::vector<struct pollfd> &pfds, std::set<int> &newfds)
+{
+	std::set<int>::iterator it;
+	for (it = newfds.begin(); it != newfds.end(); ++it)
+	{
+		struct pollfd pfd;
+		pfd.fd = *it;
+		// TODO: handle POLLOUT
+		pfd.events = POLLIN; // Check ready-to-read
+		pfds.push_back(pfd);
+	}
+}
+
+// Add a new file descriptor to the set
+void add_to_pfds(std::vector<struct pollfd> &pfds, int newfd)
+{
+	struct pollfd pfd;
+	pfd.fd = newfd;
+	// TODO: handle POLLOUT
+	pfd.events = POLLIN; // Check ready-to-read
+	pfds.push_back(pfd);
+}
+
+// Remove an index from the set
+void del_from_pfds(std::vector<struct pollfd> &pfds, int index)
+{
+	pfds.erase(pfds.begin() + index);
+}
+
+void handle_new_connection(std::vector<struct pollfd> &pfds, int listener)
 {
 	socklen_t addrlen;
 	struct sockaddr_storage remoteaddr; // Client address
@@ -247,18 +262,8 @@ void handle_new_connection(int epfd, int listener)
 	{
 		// Set the new socket to non-blocking mode
 		set_nonblocking(newfd);
-		struct epoll_event ev;
-		ev.events = EPOLLIN;
-		ev.data.fd = newfd;
-		if (epoll_ctl(epfd, EPOLL_CTL_ADD, newfd, &ev) == -1)
-		{
-			perror("epoll_ctl: newfd");
-			if (close(newfd) == -1)
-			{
-				perror("close newfd");
-			}
-		}
-		std::cout << "new connection from "
+		add_to_pfds(pfds, newfd);
+		std::cout << "pollserver: new connection from "
 				  << inet_ntop(remoteaddr.ss_family,
 							   get_in_addr((struct sockaddr *)&remoteaddr),
 							   remoteIP, INET6_ADDRSTRLEN)
@@ -266,9 +271,9 @@ void handle_new_connection(int epfd, int listener)
 	}
 }
 
-void handle_client_data(int epfd, int sender_fd)
+void handle_client_data(std::vector<struct pollfd> &pfds, std::set<int> listeners, int sender_fd)
 {
-	char buf[kMaxBuff]; // Buffer for client data
+	char buf[256]; // Buffer for client data
 
 	int nbytes = recv(sender_fd, buf, sizeof buf, 0);
 	if (nbytes <= 0)
@@ -277,172 +282,84 @@ void handle_client_data(int epfd, int sender_fd)
 		if (nbytes == 0)
 		{
 			// Connection closed
-			std::cout << "socket " << sender_fd << " hung up" << std::endl;
-		}
-		else if (errno == EAGAIN || errno == EWOULDBLOCK)
-		{
-			// No data available
-			return;
+			std::cout << "pollserver: socket " << sender_fd << " hung up" << std::endl;
 		}
 		else
 		{
 			perror("recv");
 		}
-		// It would be enough to close fd, since it's automatically removed from the epoll set
-		// but we do it explicitly to eliminate leaks due to forks or dups that might have happened
-		if (epoll_ctl(epfd, EPOLL_CTL_DEL, sender_fd, NULL) == -1)
-		{
-			perror("epoll_ctl: sender_fd");
-		}
-		if (close(sender_fd) == -1)
-		{
-			perror("close sender_fd");
-		}
+		close(sender_fd);
+		del_from_pfds(pfds, sender_fd);
 	}
 	else
 	{
-		// TODO: implement EPOLLOUT logic with EAGAIN and EWOULDBLOCK
-		// Send a dummy HTTP response
-		const char *http_response =
-			"HTTP/1.1 200 OK\r\n"
-			"Date: Fri, 07 Feb 2025 21:00:00 GMT\r\n"
-			"Server: MyWebServer/1.0\r\n"
-			"Content-Length: 13\r\n"
-			"Content-Type: text/plain\r\n"
-			"Connection: close\r\n"
-			"\r\n"
-			"Hello, world!";
-
-		int response_len = strlen(http_response);//not sure we can use it
-		if (send(sender_fd, http_response, response_len, 0) == -1)
+		// We got some good data from a client
+		for (size_t j = 0; j < pfds.size(); j++)
 		{
-			perror("send");
+			// Send to everyone!
+			int dest_fd = pfds[j].fd;
+
+			// Except the listener and ourselves
+			if (listeners.find(dest_fd) != listeners.end() || dest_fd == sender_fd)
+				continue;
+
+			if (send(dest_fd, buf, nbytes, 0) == -1)
+			{
+				perror("send");
+			}
 		}
 	}
 }
 
-void process_poll_events(int epfd, struct epoll_event *evlist, int ready, std::set<int> &listeners)
+void process_poll_events(std::vector<struct pollfd> &pfds, std::set<int> listeners)
 {
-	for (int i = 0; i < ready; i++)
+	// Run through the existing connections looking for data to read
+	for (size_t i = 0; i < pfds.size(); i++)
 	{
-		if (evlist[i].events & EPOLLIN)
-		{
-			if (listeners.find(evlist[i].data.fd) != listeners.end())//the fd is a listener and ready to read
-			{
-				// If listener is ready to read, handle new connection
-				handle_new_connection(epfd, evlist[i].data.fd);
-			}
-			else
-			{
-				// If not the listener, we're just a regular client
-				handle_client_data(epfd, evlist[i].data.fd);
-			}
-		}
-		else if (evlist[i].events & (EPOLLHUP | EPOLLERR))
-		{
-			// An error has occured on this fd, or the socket was closed
-			std::cerr << "epoll error on fd " << evlist[i].data.fd << std::endl;//why not use epoll_ctl to delete the fd from the epoll set?
-			if (close(evlist[i].data.fd) == -1)
-			{
-				int err = errno;
-				std::cerr << "close (" << evlist[i].data.fd << "): " << strerror(err) << std::endl;
-			}
-		}
-		// TODO: handle EPOLLOUT too
-	}
-}
+		// Check if not ready to read by checking POLLIN bit
+		if ((pfds[i].revents & POLLIN) == 0)
+			continue;
 
-int init_epoll(std::set<int> &listeners)
-{
-	int epfd = epoll_create(42);
-	if (epfd == -1)
-	{
-		perror("epoll_create");
-		throw std::runtime_error("epoll_create");
-	}
-
-	for (std::set<int>::iterator it = listeners.begin(); it != listeners.end(); ++it)
-	{
-		struct epoll_event ev;
-		ev.events = EPOLLIN;
-		ev.data.fd = *it;
-		if (epoll_ctl(epfd, EPOLL_CTL_ADD, *it, &ev) == -1)
+		if (listeners.find(pfds[i].fd) != listeners.end())
 		{
-			perror("epoll_ctl: listen_sock");
-			if (close(epfd) == -1)
-			{
-				perror("close epfd");
-			}
-			throw std::runtime_error("epoll_ctl: listen_sock");
+			// If listener is ready to read, handle new connection
+			handle_new_connection(pfds, pfds[i].fd);
 		}
-	}
-
-	return epfd;
-}
-
-void cleanup(int epfd, std::set<int> &listeners)
-{
-	// TODO: maybe delete
-	std::cout << "exiting..." << std::endl;
-	if (epfd != -1)
-	{
-		if (close(epfd) == -1)
+		else
 		{
-			perror("close epfd");
-		}
-	}
-	for (std::set<int>::iterator it = listeners.begin(); it != listeners.end(); ++it)
-	{
-		if (close(*it) == -1)
-		{
-			int err = errno;
-			std::cerr << "close (" << *it << "): " << strerror(err) << std::endl;
-		}
-	}
+			// If not the listener, we're just a regular client
+			handle_client_data(pfds, listeners, pfds[i].fd);
+		} // END handle data from client
+	} // END looping through file descriptors
 }
 
 int main(int argc, char *argv[])
 {
-	// Signal handling setup
-	struct sigaction sa;
-	sa.sa_handler = sigint_handler;
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = 0;
-
-	// Main server variables
-	int epfd = -1;
+	std::vector<struct pollfd> pfds;
 	std::set<int> listeners;
-	struct epoll_event evlist[kMaxEvents];
+
 	try
 	{
-		// Server initialization
-		if (sigaction(SIGINT, &sa, NULL) == -1)
-		{
-			perror("sigaction");
-			return 1;
-		}
 		listeners = get_listener_socket(argc, argv);
-		epfd = init_epoll(listeners);
+		add_to_pfds(pfds, listeners);
 
 		// Main loop
-		while (g_running)//initialized to true at header file, until a signal is received
+		for (;;)
 		{
-			int ready = epoll_wait(epfd, evlist, kMaxEvents, -1);
-			if (ready == -1)
+			int poll_count = poll(pfds.data(), pfds.size(), -1); // infinity timeout
+			if (poll_count == -1)
 			{
-				perror("epoll_wait");
-				continue;
-				// TODO: how to handle EINTR? in case of SIGCHLD after fork
-				// when child process is terminated and parent registered signal handler on SIGCHLD
+				perror("poll");
+				continue; // TODO: how to handle EINTR? in case of SIGCHLD after fork
+						  // when child process is terminated and parent registered signal handler on SIGCHLD
 			}
-			process_poll_events(epfd, evlist, ready, listeners);
+
+			process_poll_events(pfds, listeners);
 		}
-		cleanup(epfd, listeners);
 	}
 	catch (const std::exception &e)
 	{
 		std::cerr << e.what() << std::endl;
-		cleanup(epfd, listeners);
 		return 1;
 	}
 

@@ -1,27 +1,26 @@
 #pragma once
 
+#include <vector>
 #include <set>
 #include <map>
 #include <iostream>
-#include <stdexcept>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/epoll.h>
 #include <cstring>
+#include <stdexcept>
 #include <cstdio>
-#include <cerrno>
-#include <csignal>
+#include <poll.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <netdb.h>
 #include <fcntl.h>
+#include <cerrno>
 
 bool g_running = true;
 const int kMaxEvents = 10;
-const int kMaxBuff = 1000;
 
 // key: port number, value: a map of IP address and file descriptor
-typedef std::map<std::string, int> ip_fd_map_t;			  // key: IP address, value: file descriptor
+typedef std::map<std::string, int> ip_fd_map_t; // key: IP address, value: file descriptor
 typedef std::map<std::string, ip_fd_map_t> bound_addrs_t; // key: port number, value: ip_fd_map_t
 
 // TODO: delete
