@@ -21,7 +21,7 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6 *)sa)->sin6_addr); // IPv6
 }
 
-std::string get_straddr(struct addrinfo *p)
+std::string getStraddr(struct addrinfo *p)
 {
 	char ipstr[INET6_ADDRSTRLEN];
 	void *addr;
@@ -44,7 +44,7 @@ std::string get_straddr(struct addrinfo *p)
 	return std::string(ipstr);
 }
 
-void print_addrinfo(const char *host, const char *port, struct addrinfo *ai)
+void printAddrinfo(const char *host, const char *port, struct addrinfo *ai)
 {
 	struct addrinfo *p;
 
@@ -54,7 +54,7 @@ void print_addrinfo(const char *host, const char *port, struct addrinfo *ai)
 		std::string ipver = "IPv4";
 		if (p->ai_family == AF_INET6)
 			ipver = "IPv6";
-		std::string straddr = get_straddr(p);
+		std::string straddr = getStraddr(p);
 		std::cout << "\t" << ipver << ": " << straddr << std::endl;
 	}
 }
@@ -153,11 +153,11 @@ std::set<int> get_listener_socket(int argc, char *argv[])
 		}
 
 		// TODO: should be debug print
-		print_addrinfo(argv[i], argv[i + 1], ai);
+		printAddrinfo(argv[i], argv[i + 1], ai);
 
 		for (p = ai; p != NULL; p = p->ai_next)
 		{
-			std::string straddr = get_straddr(p);
+			std::string straddr = getStraddr(p);
 			if (p->ai_family == AF_INET) // IPv4
 			{
 				if (check_binding("0.0.0.0", argv[i + 1], straddr, bound_addrs4))
@@ -205,9 +205,9 @@ std::set<int> get_listener_socket(int argc, char *argv[])
 			}
 
 			if (p->ai_family == AF_INET) // IPv4
-				bound_addrs4[argv[i + 1]][get_straddr(p)] = listener;
+				bound_addrs4[argv[i + 1]][getStraddr(p)] = listener;
 			else // IPv6
-				bound_addrs6[argv[i + 1]][get_straddr(p)] = listener;
+				bound_addrs6[argv[i + 1]][getStraddr(p)] = listener;
 		}
 		freeaddrinfo(ai); // All done with this structure
 	}
