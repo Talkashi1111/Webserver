@@ -1,6 +1,6 @@
 #include "server_poll.hpp"
 
-void set_nonblocking(int fd)
+void setNonblocking(int fd)
 {
 	if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1)
 	{
@@ -71,7 +71,7 @@ void close_sockets(ip_fd_map_t &ip_fd_map)
 	}
 }
 
-void close_all_sockets(bound_addrs_t &bound_addrs4, bound_addrs_t &bound_addrs6)
+void closeAllSockets(bound_addrs_t &bound_addrs4, bound_addrs_t &bound_addrs6)
 {
 	for (bound_addrs_t::iterator bp = bound_addrs4.begin(); bp != bound_addrs4.end(); ++bp)
 	{
@@ -174,7 +174,7 @@ std::set<int> get_listener_socket(int argc, char *argv[])
 			{
 				int err = errno;
 				strerr = "socket(" + straddr + ":" + argv[i + 1] + "): " + strerror(err);
-				close_all_sockets(bound_addrs4, bound_addrs6);
+				closeAllSockets(bound_addrs4, bound_addrs6);
 				freeaddrinfo(ai);
 				throw std::runtime_error(strerr);
 			}
@@ -185,13 +185,13 @@ std::set<int> get_listener_socket(int argc, char *argv[])
 				int err = errno;
 				strerr = "bind(" + straddr + ":" + argv[i + 1] + "): " + strerror(err);
 				close(listener);
-				close_all_sockets(bound_addrs4, bound_addrs6);
+				closeAllSockets(bound_addrs4, bound_addrs6);
 				freeaddrinfo(ai);
 				throw std::runtime_error(strerr);
 			}
 
 			// Set the socket to be non-blocking
-			set_nonblocking(listener);
+			setNonblocking(listener);
 
 			// Listen
 			if (listen(listener, 10) == -1)
@@ -199,7 +199,7 @@ std::set<int> get_listener_socket(int argc, char *argv[])
 				int err = errno;
 				strerr = "listen(" + straddr + ":" + argv[i + 1] + "): " + strerror(err);
 				close(listener);
-				close_all_sockets(bound_addrs4, bound_addrs6);
+				closeAllSockets(bound_addrs4, bound_addrs6);
 				freeaddrinfo(ai);
 				throw std::runtime_error(strerr);
 			}
@@ -244,7 +244,7 @@ void del_from_pfds(std::vector<struct pollfd> &pfds, int index)
 	pfds.erase(pfds.begin() + index);
 }
 
-void handle_new_connection(std::vector<struct pollfd> &pfds, int listener)
+void handleNewConnection(std::vector<struct pollfd> &pfds, int listener)
 {
 	socklen_t addrlen;
 	struct sockaddr_storage remoteaddr; // Client address
@@ -261,7 +261,7 @@ void handle_new_connection(std::vector<struct pollfd> &pfds, int listener)
 	else
 	{
 		// Set the new socket to non-blocking mode
-		set_nonblocking(newfd);
+		setNonblocking(newfd);
 		add_to_pfds(pfds, newfd);
 		std::cout << "pollserver: new connection from "
 				  << inet_ntop(remoteaddr.ss_family,
@@ -271,7 +271,7 @@ void handle_new_connection(std::vector<struct pollfd> &pfds, int listener)
 	}
 }
 
-void handle_client_data(std::vector<struct pollfd> &pfds, std::set<int> listeners, int sender_fd)
+void handleClientData(std::vector<struct pollfd> &pfds, std::set<int> listeners, int sender_fd)
 {
 	char buf[256]; // Buffer for client data
 
@@ -311,7 +311,7 @@ void handle_client_data(std::vector<struct pollfd> &pfds, std::set<int> listener
 	}
 }
 
-void process_poll_events(std::vector<struct pollfd> &pfds, std::set<int> listeners)
+void processPollEvents(std::vector<struct pollfd> &pfds, std::set<int> listeners)
 {
 	// Run through the existing connections looking for data to read
 	for (size_t i = 0; i < pfds.size(); i++)
@@ -323,12 +323,12 @@ void process_poll_events(std::vector<struct pollfd> &pfds, std::set<int> listene
 		if (listeners.find(pfds[i].fd) != listeners.end())
 		{
 			// If listener is ready to read, handle new connection
-			handle_new_connection(pfds, pfds[i].fd);
+			handleNewConnection(pfds, pfds[i].fd);
 		}
 		else
 		{
 			// If not the listener, we're just a regular client
-			handle_client_data(pfds, listeners, pfds[i].fd);
+			handleClientData(pfds, listeners, pfds[i].fd);
 		} // END handle data from client
 	} // END looping through file descriptors
 }
@@ -354,7 +354,7 @@ int main(int argc, char *argv[])
 						  // when child process is terminated and parent registered signal handler on SIGCHLD
 			}
 
-			process_poll_events(pfds, listeners);
+			processPollEvents(pfds, listeners);
 		}
 	}
 	catch (const std::exception &e)

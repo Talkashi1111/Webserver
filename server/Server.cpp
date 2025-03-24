@@ -6,7 +6,6 @@ Server::Server() : _listens(),
 				   _serverNames(),
 				   _root(kDefaultRoot),
 				   _index(kDefaultIndex.begin(), kDefaultIndex.end()),
-				   _clientTimeout(kDefaultClientTimeout),
 				   _clientHeaderBufferSize(kDefaultClientHeaderBufferSize),
 				   _clientMaxBodySize(kDefaultClientMaxBodySize),
 				   _errorPages(kDefaultErrorPages),
@@ -20,7 +19,6 @@ Server::Server() : _listens(),
 				   _serverNamesSet(false),
 				   _rootSet(false),
 				   _indexSet(false),
-				   _clientTimeoutSet(false),
 				   _clientHeaderBufferSizeSet(false),
 				   _clientMaxBodySizeSet(false),
 				   _errorPagesSet(),
@@ -36,7 +34,6 @@ Server::Server(const Server &other) : _listens(other._listens),
 									  _serverNames(other._serverNames),
 									  _root(other._root),
 									  _index(other._index),
-									  _clientTimeout(other._clientTimeout),
 									  _clientHeaderBufferSize(other._clientHeaderBufferSize),
 									  _clientMaxBodySize(other._clientMaxBodySize),
 									  _errorPages(other._errorPages),
@@ -50,7 +47,6 @@ Server::Server(const Server &other) : _listens(other._listens),
 									  _serverNamesSet(other._serverNamesSet),
 									  _rootSet(other._rootSet),
 									  _indexSet(other._indexSet),
-									  _clientTimeoutSet(other._clientTimeoutSet),
 									  _clientHeaderBufferSizeSet(other._clientHeaderBufferSizeSet),
 									  _clientMaxBodySizeSet(other._clientMaxBodySizeSet),
 									  _errorPagesSet(other._errorPagesSet),
@@ -68,7 +64,6 @@ Server &Server::operator=(const Server &other)
 		_serverNames = other._serverNames;
 		_root = other._root;
 		_index = other._index;
-		_clientTimeout = other._clientTimeout;
 		_clientHeaderBufferSize = other._clientHeaderBufferSize;
 		_clientMaxBodySize = other._clientMaxBodySize;
 		_errorPages = other._errorPages;
@@ -82,7 +77,6 @@ Server &Server::operator=(const Server &other)
 		_serverNamesSet = other._serverNamesSet;
 		_rootSet = other._rootSet;
 		_indexSet = other._indexSet;
-		_clientTimeoutSet = other._clientTimeoutSet;
 		_clientHeaderBufferSizeSet = other._clientHeaderBufferSizeSet;
 		_clientMaxBodySizeSet = other._clientMaxBodySizeSet;
 		_errorPagesSet = other._errorPagesSet;
@@ -172,22 +166,6 @@ const std::set<std::string> &Server::getIndex() const
 bool Server::isIndexSet() const
 {
 	return _indexSet;
-}
-
-void Server::setClientTimeout(int timeout)
-{
-	_clientTimeout = timeout;
-	_clientTimeoutSet = true;
-}
-
-int Server::getClientTimeout() const
-{
-	return _clientTimeout;
-}
-
-bool Server::isClientTimeoutSet() const
-{
-	return _clientTimeoutSet;
 }
 
 int Server::convertSizeToBytes(const std::string &size) const

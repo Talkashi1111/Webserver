@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <stdexcept>
 #include <stack>
@@ -22,7 +23,11 @@
 #include "StringUtils.hpp"
 #include "Globals.hpp"
 
-WebServer::WebServer(const std::string &filename) : file_name(filename), epfd(-1)
+WebServer::WebServer(const std::string &filename) : _fileName(filename),
+													_epfd(-1),
+													_listeners(),
+													_clientTimeout(kDefaultClientTimeout),
+													_clientTimeoutSet(false)
 {
 	if (filename.empty())
 	{
@@ -36,8 +41,11 @@ WebServer::WebServer(const std::string &filename) : file_name(filename), epfd(-1
 }
 
 // TODO: fix the copy logic in Server, LocationTrie, LocationTrieNode
-WebServer::WebServer(const WebServer &other)
-	: file_name(other.file_name), epfd(-1), listeners(other.listeners)
+WebServer::WebServer(const WebServer &other) : _fileName(other._fileName),
+											   _epfd(-1),
+											   _listeners(other._listeners),
+											   _clientTimeout(other._clientTimeout),
+											   _clientTimeoutSet(other._clientTimeoutSet)
 {
 	// Deep copy each server and store in _servers map
 	for (std::map<ServerKey, Server *>::const_iterator it = other._servers.begin();
@@ -56,9 +64,11 @@ WebServer &WebServer::operator=(const WebServer &other)
 		cleanupAllocatedMemory();
 
 		// Copy basic members
-		file_name = other.file_name;
-		epfd = -1; // Don't copy epfd, create new one when needed
-		listeners = other.listeners;
+		_fileName = other._fileName;
+		_epfd = -1; // Don't copy _epfd, create new one when needed
+		_listeners = other._listeners;
+		_clientTimeout = other._clientTimeout;
+		_clientTimeoutSet = other._clientTimeoutSet;
 
 		// Deep copy servers
 		for (std::map<ServerKey, Server *>::const_iterator it = other._servers.begin();
@@ -94,7 +104,31 @@ void WebServer::cleanupAllocatedMemory()
 
 WebServer::~WebServer()
 {
+	//TODO: add client connections cleanup
+	closeAllSockets();
+	if (_epfd != -1 && close(_epfd) == -1)
+	{
+		int err = errno;
+		std::cerr << "close (" << _epfd << "): " << strerror(err) << std::endl;
+	}
+	_epfd = -1;
 	cleanupAllocatedMemory();
+}
+
+void WebServer::setClientTimeout(int timeout)
+{
+	_clientTimeout = timeout;
+	_clientTimeoutSet = true;
+}
+
+int WebServer::getClientTimeout() const
+{
+	return _clientTimeout;
+}
+
+bool WebServer::isClientTimeoutSet() const
+{
+	return _clientTimeoutSet;
 }
 
 std::string WebServer::readUntilDelimiter(std::istream &file, const std::string &delimiters)
@@ -452,19 +486,6 @@ void WebServer::handleServerDirective(const std::vector<std::string> &words, Ser
 		for (size_t i = 1; i < words.size(); ++i)
 			curr_server->addIndex(words[i]);
 	}
-	else if (words[0] == "client_timeout")
-	{
-		if (words.size() != 2)
-			throw std::invalid_argument("Invalid client_timeout directive");
-		if (curr_server->isClientTimeoutSet())
-			throw std::invalid_argument("Duplicate client_timeout directive");
-		if (!isNumber(words[1]))
-			throw std::invalid_argument("client_timeout is not numeric");
-		int timeout = atoi(words[1].c_str());
-		if (timeout <= 0)
-			throw std::invalid_argument("Invalid timeout in client_timeout directive");
-		curr_server->setClientTimeout(timeout);
-	}
 	else if (words[0] == "client_header_buffer_size")
 	{
 		if (words.size() != 2)
@@ -603,6 +624,27 @@ void WebServer::handleLocationDirective(const std::vector<std::string> &words, L
 	}
 }
 
+void WebServer::handleGlobalDirective(const std::vector<std::string> &words)
+{
+	if (words[0] == "client_timeout")
+	{
+		if (words.size() != 2)
+			throw std::invalid_argument("Invalid client_timeout directive");
+		if (isClientTimeoutSet())
+			throw std::invalid_argument("Duplicate client_timeout directive");
+		if (!isNumber(words[1]))
+			throw std::invalid_argument("client_timeout is not numeric");
+		int timeout = atoi(words[1].c_str());
+		if (timeout <= 0)
+			throw std::invalid_argument("Invalid timeout in client_timeout directive");
+		setClientTimeout(timeout);
+	}
+	else
+	{
+		throw std::invalid_argument("Invalid directive in global block: " + words[0]);
+	}
+}
+
 void WebServer::handleDirective(const std::string &content_block, Server *curr_server, Location *curr_location, ParseState &state)
 {
 	std::vector<std::string> words = splitByWhiteSpaces(content_block);
@@ -611,7 +653,8 @@ void WebServer::handleDirective(const std::string &content_block, Server *curr_s
 	switch (state)
 	{
 	case GLOBAL:
-		throw std::invalid_argument("Directive outside server or location");
+		handleGlobalDirective(words);
+		break;
 	case SERVER:
 		handleServerDirective(words, curr_server);
 		break;
@@ -689,7 +732,7 @@ void WebServer::addServer(Server *server)
 			host = host.substr(1, host.length() - 2);
 
 		// Add default server for this host:port if not already present
-		ServerKey default_key(port, host, "");
+		ServerKey default_key(port, host, kDefaultServerName);
 		if (_servers.find(default_key) == _servers.end())
 			_servers[default_key] = server;
 
@@ -734,9 +777,9 @@ void WebServer::handleCloseBracket(const std::string &content_block, Server *&cu
 
 void WebServer::parseConfig()
 {
-	std::ifstream file(this->file_name.c_str());
+	std::ifstream file(this->_fileName.c_str());
 	if (!file.is_open())
-		throw std::invalid_argument("File not found: " + this->file_name);
+		throw std::invalid_argument("File not found: " + this->_fileName);
 
 	ParseState state = GLOBAL;
 	Server *curr_server = NULL;
@@ -802,7 +845,7 @@ void WebServer::parseConfig()
 	}
 }
 
-void set_nonblocking(int fd)
+void WebServer::setNonblocking(int fd)
 {
 	// TODO: didn't use F_GETFL because by default it appends new flags to the existing ones
 	// so not sure if I should use it or not.
@@ -825,170 +868,125 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6 *)sa)->sin6_addr); // IPv6
 }
 
-void close_sockets(ip_fd_map_t &ip_fd_map)
+void WebServer::closeAllSockets()
 {
-	for (ip_fd_map_t::iterator it = ip_fd_map.begin(); it != ip_fd_map.end(); ++it)
+	// Close all listener sockets
+	for (std::map<int, std::pair<std::string, std::string> >::iterator it = _listeners.begin();
+		 it != _listeners.end(); ++it)
 	{
-		if (close(it->second) == -1)
+		if (close(it->first) == -1)
 		{
 			int err = errno;
-			std::cerr << "close (" << it->second << "): " << strerror(err) << std::endl;
+			std::cerr << "close (listener " << it->first << "): "
+					  << strerror(err) << std::endl;
 		}
 	}
+	_listeners.clear();
 }
 
-void close_all_sockets(bound_addrs_t &bound_addrs4, bound_addrs_t &bound_addrs6)
+void WebServer::setupListenerSockets()
 {
-	for (bound_addrs_t::iterator bp = bound_addrs4.begin(); bp != bound_addrs4.end(); ++bp)
+	int yes = 1; // For setsockopt() SO_REUSEADDR, below
+	int rv;
+	std::string strerr;
+	struct addrinfo hints, *ai;
+	// set of bound addresses for IPv4 and IPv6 where pair.first is the address and pair.second is the port
+	std::set<std::pair<std::string, std::string> > bound_addresses;
+
+	// Get us a socket and bind it
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	for (std::map<ServerKey, Server *>::const_iterator it = _servers.begin();
+		 it != _servers.end(); ++it)
 	{
-		close_sockets(bp->second);
+		const ServerKey &key = it->first;
+		if ((rv = getaddrinfo(key.host.c_str(), key.port.c_str(), &hints, &ai)) != 0)
+		{
+			strerr = "getaddrinfo(" + key.host + ":" + key.port + "): " + std::string(gai_strerror(rv));
+			throw std::runtime_error(strerr);
+		}
+
+		if (ai->ai_family == AF_INET) // IPv4
+		{
+			if (bound_addresses.find(std::make_pair("0.0.0.0", key.port)) != bound_addresses.end())
+			{
+				freeaddrinfo(ai);
+				continue;
+			}
+		}
+		if (ai->ai_family == AF_INET6) // IPv6
+		{
+			if (bound_addresses.find(std::make_pair("::", key.port)) != bound_addresses.end())
+			{
+				freeaddrinfo(ai);
+				continue;
+			}
+		}
+		if (bound_addresses.find(std::make_pair(key.host, key.port)) != bound_addresses.end())
+		{
+			freeaddrinfo(ai);
+			continue;
+		}
+
+		int listener = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+		if (listener < 0)
+		{
+			int err = errno;
+			strerr = "socket(" + key.host + ":" + key.port + "): " + strerror(err);
+			closeAllSockets();
+			freeaddrinfo(ai);
+			throw std::runtime_error(strerr);
+		}
+		// Avoid error of "address already in use" error message
+		setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)); // don't care about return value, do the best effort
+		if (bind(listener, ai->ai_addr, ai->ai_addrlen) < 0)
+		{
+			int err = errno;
+			strerr = "bind(" + key.host + ":" + key.port + "): " + strerror(err);
+			if (close(listener) == -1)
+			{
+				err = errno;
+				std::cerr << "close (" << listener << "): " << strerror(err) << std::endl;
+			}
+			closeAllSockets();
+			freeaddrinfo(ai);
+			throw std::runtime_error(strerr);
+		}
+
+		// Set the socket to be non-blocking
+		setNonblocking(listener);
+
+		// Listen
+		if (listen(listener, 10) == -1)
+		{
+			int err = errno;
+			strerr = "listen(" + key.host + ":" + key.port + "): " + strerror(err);
+			if (close(listener) == -1)
+			{
+				err = errno;
+				std::cerr << "close (" << listener << "): " << strerror(err) << std::endl;
+			}
+			closeAllSockets();
+			freeaddrinfo(ai);
+			throw std::runtime_error(strerr);
+		}
+		_listeners[listener] = std::make_pair(key.host, key.port);
+		bound_addresses.insert(std::make_pair(key.host, key.port));
+		freeaddrinfo(ai); // All done with this structure
 	}
-	for (bound_addrs_t::iterator bp = bound_addrs6.begin(); bp != bound_addrs6.end(); ++bp)
+	if (DEBUG)
 	{
-		close_sockets(bp->second);
+		std::cout << "Listening on the following addresses:" << std::endl;
+		for (std::map<int, std::pair<std::string, std::string> >::iterator it = _listeners.begin();
+			 it != _listeners.end(); ++it)
+		{
+			std::cout << it->second.first << ":" << it->second.second << std::endl;
+		}
 	}
 }
 
-bool check_binding(const std::string &all_interfaces, const std::string &port,
-				   const std::string &straddr, bound_addrs_t &bound_addrs)
-{
-	bound_addrs_t::iterator bp = bound_addrs.find(port);
-	if (bp != bound_addrs.end()) // if port in map
-	{
-		if (bp->second.find(all_interfaces) != bp->second.end())
-		{
-			// Already bound to all addresses on this port
-			return true;
-		}
-		if (bp->second.find(straddr) != bp->second.end())
-		{
-			// Already bound to this address and port
-			return true;
-		}
-		if (straddr == all_interfaces)
-		{
-			close_sockets(bp->second);
-			bp->second.clear();
-		}
-	}
-	return false;
-}
-
-std::set<int> get_fd_set(bound_addrs_t &bound_addrs4, bound_addrs_t &bound_addrs6)
-{
-	std::set<int> fd_set;
-	for (bound_addrs_t::iterator bp = bound_addrs4.begin(); bp != bound_addrs4.end(); ++bp)
-	{
-		for (ip_fd_map_t::iterator ip = bp->second.begin(); ip != bp->second.end(); ++ip)
-		{
-			fd_set.insert(ip->second);
-		}
-	}
-	for (bound_addrs_t::iterator bp = bound_addrs6.begin(); bp != bound_addrs6.end(); ++bp)
-	{
-		for (ip_fd_map_t::iterator ip = bp->second.begin(); ip != bp->second.end(); ++ip)
-		{
-			fd_set.insert(ip->second);
-		}
-	}
-	return fd_set;
-}
-
-// void WebServer::setup_listener_sockets()
-// {
-// 	bound_addrs_t bound_addrs4;
-// 	bound_addrs_t bound_addrs6;
-// 	int yes = 1; // For setsockopt() SO_REUSEADDR, below
-// 	int rv;
-// 	std::string strerr;
-
-// 	struct addrinfo hints, *ai, *p;
-
-// 	// Get us a socket and bind it
-// 	memset(&hints, 0, sizeof hints);
-// 	hints.ai_family = AF_UNSPEC;
-// 	hints.ai_socktype = SOCK_STREAM;
-// 	for (int i = 1; i < argc; i += 2)
-// 	{
-// 		// TODO: replace argv and argc by config file data
-// 		// argv[i] is host, argv[i + 1] is port
-// 		if ((rv = getaddrinfo(argv[i], argv[i + 1], &hints, &ai)) != 0)
-// 		{
-// 			strerr = "getaddrinfo(" + std::string(argv[i]) + ":" + argv[i + 1] + "): " + std::string(gai_strerror(rv));
-// 			throw std::runtime_error(strerr);
-// 		}
-
-// 		// TODO: should be debug print
-// 		printAddrinfo(argv[i], argv[i + 1], ai);
-
-// 		for (p = ai; p != NULL; p = p->ai_next)
-// 		{
-// 			std::string straddr = getStraddr(p);
-// 			if (p->ai_family == AF_INET) // IPv4
-// 			{
-// 				if (check_binding("0.0.0.0", argv[i + 1], straddr, bound_addrs4))
-// 					continue;
-// 			}
-// 			if (p->ai_family == AF_INET6) // IPv6
-// 			{
-// 				if (check_binding("::", argv[i + 1], straddr, bound_addrs6))
-// 					continue;
-// 			}
-
-// 			int listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-// 			if (listener < 0)
-// 			{
-// 				int err = errno;
-// 				strerr = "socket(" + straddr + ":" + argv[i + 1] + "): " + strerror(err);
-// 				close_all_sockets(bound_addrs4, bound_addrs6);
-// 				freeaddrinfo(ai);
-// 				throw std::runtime_error(strerr);
-// 			}
-// 			// Avoid error of "address already in use" error message
-// 			setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)); // don't care about return value, do the best effort
-// 			if (bind(listener, p->ai_addr, p->ai_addrlen) < 0)
-// 			{
-// 				int err = errno;
-// 				strerr = "bind(" + straddr + ":" + argv[i + 1] + "): " + strerror(err);
-// 				if (close(listener) == -1)
-// 				{
-// 					err = errno;
-// 					std::cerr << "close (" << listener << "): " << strerror(err) << std::endl;
-// 				}
-// 				close_all_sockets(bound_addrs4, bound_addrs6);
-// 				freeaddrinfo(ai);
-// 				throw std::runtime_error(strerr);
-// 			}
-
-// 			// Set the socket to be non-blocking
-// 			set_nonblocking(listener);
-
-// 			// Listen
-// 			if (listen(listener, 10) == -1)
-// 			{
-// 				int err = errno;
-// 				strerr = "listen(" + straddr + ":" + argv[i + 1] + "): " + strerror(err);
-// 				if (close(listener) == -1)
-// 				{
-// 					err = errno;
-// 					std::cerr << "close (" << listener << "): " << strerror(err) << std::endl;
-// 				}
-// 				close_all_sockets(bound_addrs4, bound_addrs6);
-// 				freeaddrinfo(ai);
-// 				throw std::runtime_error(strerr);
-// 			}
-
-// 			if (p->ai_family == AF_INET) // IPv4
-// 				bound_addrs4[argv[i + 1]][getStraddr(p)] = listener;
-// 			else // IPv6
-// 				bound_addrs6[argv[i + 1]][getStraddr(p)] = listener;
-// 		}
-// 		freeaddrinfo(ai); // All done with this structure
-// 	}
-// 	return get_fd_set(bound_addrs4, bound_addrs6);
-// }
-
-void handle_new_connection(int epfd, int listener)
+void WebServer::handleNewConnection(int _epfd, int listener)
 {
 	socklen_t addrlen;
 	struct sockaddr_storage remoteaddr; // Client address
@@ -1005,11 +1003,11 @@ void handle_new_connection(int epfd, int listener)
 	else
 	{
 		// Set the new socket to non-blocking mode
-		set_nonblocking(newfd);
+		setNonblocking(newfd);
 		struct epoll_event ev;
 		ev.events = EPOLLIN;
 		ev.data.fd = newfd;
-		if (epoll_ctl(epfd, EPOLL_CTL_ADD, newfd, &ev) == -1)
+		if (epoll_ctl(_epfd, EPOLL_CTL_ADD, newfd, &ev) == -1)
 		{
 			perror("epoll_ctl: newfd");
 			if (close(newfd) == -1)
@@ -1025,7 +1023,7 @@ void handle_new_connection(int epfd, int listener)
 	}
 }
 
-void handle_client_data(int epfd, int sender_fd)
+void WebServer::handleClientData(int _epfd, int sender_fd)
 {
 	char buf[kMaxBuff]; // Buffer for client data
 
@@ -1049,7 +1047,7 @@ void handle_client_data(int epfd, int sender_fd)
 		}
 		// It would be enough to close fd, since it's automatically removed from the epoll set
 		// but we do it explicitly to eliminate leaks due to forks or dups that might have happened
-		if (epoll_ctl(epfd, EPOLL_CTL_DEL, sender_fd, NULL) == -1)
+		if (epoll_ctl(_epfd, EPOLL_CTL_DEL, sender_fd, NULL) == -1)
 		{
 			perror("epoll_ctl: sender_fd");
 		}
@@ -1080,82 +1078,65 @@ void handle_client_data(int epfd, int sender_fd)
 	}
 }
 
-void process_poll_events(int epfd, struct epoll_event *evlist, int ready, std::set<int> &listeners)
+void WebServer::processPollEvents(int ready)
 {
 	for (int i = 0; i < ready; i++)
 	{
-		if (evlist[i].events & EPOLLIN)
+		if (_evlist[i].events & EPOLLIN)
 		{
-			if (listeners.find(evlist[i].data.fd) != listeners.end()) // the fd is a listener and ready to read
+			if (_listeners.find(_evlist[i].data.fd) != _listeners.end()) // the fd is a listener and ready to read
 			{
 				// If listener is ready to read, handle new connection
-				handle_new_connection(epfd, evlist[i].data.fd);
+				handleNewConnection(_epfd, _evlist[i].data.fd);
 			}
 			else
 			{
 				// If not the listener, we're just a regular client
-				handle_client_data(epfd, evlist[i].data.fd);
+				handleClientData(_epfd, _evlist[i].data.fd);
 			}
 		}
-		else if (evlist[i].events & (EPOLLHUP | EPOLLERR))
+		else if (_evlist[i].events & (EPOLLHUP | EPOLLERR))
 		{
+			//TODO: handle listen socket errors and client socket close/errors
 			// An error has occured on this fd, or the socket was closed
-			std::cerr << "epoll error on fd " << evlist[i].data.fd << std::endl; // why not use epoll_ctl to delete the fd from the epoll set?
-			if (close(evlist[i].data.fd) == -1)
+			std::cerr << "epoll error on fd " << _evlist[i].data.fd << std::endl; // why not use epoll_ctl to delete the fd from the epoll set?
+			if (close(_evlist[i].data.fd) == -1)
 			{
 				int err = errno;
-				std::cerr << "close (" << evlist[i].data.fd << "): " << strerror(err) << std::endl;
+				std::cerr << "close (" << _evlist[i].data.fd << "): " << strerror(err) << std::endl;
 			}
 		}
 		// TODO: handle EPOLLOUT too
 	}
 }
 
-int WebServer::initEpoll()
+void WebServer::initEpoll()
 {
-	this->epfd = epoll_create(42);
-	if (this->epfd == -1)
+	this->_epfd = epoll_create(42);
+	if (this->_epfd == -1)
 	{
 		perror("epoll_create");
 		throw std::runtime_error("epoll_create");
 	}
 
-	for (std::set<int>::iterator it = listeners.begin(); it != listeners.end(); ++it)
+	for (std::map<int, std::pair<std::string, std::string> >::iterator it = _listeners.begin();
+		 it != _listeners.end(); ++it)
 	{
 		struct epoll_event ev;
 		ev.events = EPOLLIN;
-		ev.data.fd = *it;
-		if (epoll_ctl(epfd, EPOLL_CTL_ADD, *it, &ev) == -1)
-		{
-			perror("epoll_ctl: listen_sock");
-			if (close(epfd) == -1)
-			{
-				perror("close epfd");
-			}
-			throw std::runtime_error("epoll_ctl: listen_sock");
-		}
-	}
-
-	return epfd;
-}
-
-void WebServer::cleanup(int epfd, std::set<int> &listeners)
-{
-	// TODO: maybe delete
-	std::cout << "exiting..." << std::endl;
-	if (epfd != -1)
-	{
-		if (close(epfd) == -1)
-		{
-			perror("close epfd");
-		}
-	}
-	for (std::set<int>::iterator it = listeners.begin(); it != listeners.end(); ++it)
-	{
-		if (close(*it) == -1)
+		ev.data.fd = it->first;
+		if (epoll_ctl(this->_epfd, EPOLL_CTL_ADD, it->first, &ev) == -1)
 		{
 			int err = errno;
-			std::cerr << "close (" << *it << "): " << strerror(err) << std::endl;
+			perror("epoll_ctl: listener_sock");
+			if (close(this->_epfd) == -1)
+			{
+				perror("close _epfd");
+			}
+			_epfd = -1;
+			std::stringstream ss;
+			ss << "epoll_ctl: failed to add listener socket " << it->first << ": " << strerror(err);
+			throw std::runtime_error(ss.str());
 		}
 	}
 }
@@ -1297,13 +1278,13 @@ void WebServer::printSettings() const
 
 void WebServer::run()
 {
-	// this->setup_listener_sockets();
+	this->setupListenerSockets();
 	this->initEpoll();
 
 	// Main loop
 	while (g_running) // initialized to true at header file, until a signal is received
 	{
-		int ready = epoll_wait(this->epfd, evlist, kMaxEvents, -1);
+		int ready = epoll_wait(this->_epfd, _evlist, kMaxEvents, -1);
 		if (ready == -1)
 		{
 			perror("epoll_wait");
@@ -1311,55 +1292,6 @@ void WebServer::run()
 			// TODO: how to handle EINTR? in case of SIGCHLD after fork
 			// when child process is terminated and parent registered signal handler on SIGCHLD
 		}
-		process_poll_events(epfd, evlist, ready, listeners);
+		processPollEvents(ready);
 	}
-	cleanup(epfd, listeners);
 }
-// TODO: delete
-//  int main(int argc, char *argv[])
-//  {
-//  	// Signal handling setup
-//  	struct sigaction sa;
-//  	sa.sa_handler = sigintHandler;
-//  	sigemptyset(&sa.sa_mask);
-//  	sa.sa_flags = 0;
-
-// 	// Main server variables
-// 	int epfd = -1;
-// 	std::set<int> listeners;
-// 	struct epoll_event evlist[kMaxEvents];
-// 	try
-// 	{
-// 		// Server initialization
-// 		if (sigaction(SIGINT, &sa, NULL) == -1)
-// 		{
-// 			perror("sigaction");
-// 			return 1;
-// 		}
-// 		listeners = setup_listener_sockets(argc, argv);
-// 		epfd = initEpoll(listeners);
-
-// 		// Main loop
-// 		while (g_running)//initialized to true at header file, until a signal is received
-// 		{
-// 			int ready = epoll_wait(epfd, evlist, kMaxEvents, -1);
-// 			if (ready == -1)
-// 			{
-// 				perror("epoll_wait");
-// 				continue;
-// 				// TODO: how to handle EINTR? in case of SIGCHLD after fork
-// 				// when child process is terminated and parent registered signal handler on SIGCHLD
-// 			}
-// 			process_poll_events(epfd, evlist, ready, listeners);
-// 		}
-// 		cleanup(epfd, listeners);
-// 	}
-// 	catch (const std::exception &e)
-// 	{
-// 		std::cerr << e.what() << std::endl;
-// 		cleanup(epfd, listeners);
-// 		return 1;
-// 	}
-
-// 	return 0;
-// }

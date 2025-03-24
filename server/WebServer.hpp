@@ -7,10 +7,6 @@
 #include "ServerKey.hpp"
 #include "Server.hpp"
 
-// key: port number, value: a map of IP address and file descriptor
-typedef std::map<std::string, int> ip_fd_map_t;			  // key: IP address, value: file descriptor
-typedef std::map<std::string, ip_fd_map_t> bound_addrs_t; // key: port number, value: ip_fd_map_t
-
 const int kMaxEvents = 10;
 
 enum ParseState
@@ -29,26 +25,24 @@ public:
 	~WebServer();
 
 	void run();
-	void close_all_sockets(bound_addrs_t &bound_addrs4, bound_addrs_t &bound_addrs6);
-	bool check_binding(const std::string &all_interfaces, const std::string &port,
-					   const std::string &straddr, bound_addrs_t &bound_addrs);
-	std::set<int> get_fd_set(bound_addrs_t &bound_addrs4, bound_addrs_t &bound_addrs6);
-	// void setup_listener_sockets();
-	void handle_new_connection(int epfd, int listener);
-	void handle_client_data(int epfd, int sender_fd);
-	void set_nonblocking(int fd);
-	void cleanup(int epfd, std::set<int> &listeners);
 	void printSettings() const;
 
+	// Setters / Getters
+	void setClientTimeout(int timeout);
+	int getClientTimeout() const;
+	bool isClientTimeoutSet() const;
+
 private:
-std::string file_name;
-	int epfd;
-	std::set<int> listeners;
-	struct epoll_event evlist[kMaxEvents];
+	std::string _fileName;
+	int _epfd;
+	std::map<int, std::pair<std::string, std::string> > _listeners; // key: file descriptor, value: pair of local host and port
+	int _clientTimeout;												// in seconds; Default: 75
+	bool _clientTimeoutSet;
+	struct epoll_event _evlist[kMaxEvents];
 	std::map<ServerKey, Server *> _servers;
 
 	void parseConfig();
-	int initEpoll();
+	void initEpoll();
 	std::string readUntilDelimiter(std::istream &file, const std::string &delimiters);
 	void handleOpenBracket(const std::string &content_block, Server *&curr_server, Location *&curr_location, ParseState &state);
 	void handleDirective(const std::string &content_block, Server *curr_server, Location *curr_location, ParseState &state);
@@ -59,9 +53,16 @@ std::string file_name;
 	void validateUrl(const std::string &url) const;
 	void validateReturnDirective(const std::vector<std::string> &words);
 	void validateRootDirective(const std::vector<std::string> &words);
+	void handleGlobalDirective(const std::vector<std::string> &words);
 	void handleServerDirective(const std::vector<std::string> &words, Server *curr_server);
 	void handleLocationDirective(const std::vector<std::string> &words, Location *curr_location);
-	void inheritServerDirectives(Server* curr_server);
+	void inheritServerDirectives(Server *curr_server);
 	void addServer(Server *server);
+	void processPollEvents(int ready);
+	void closeAllSockets();
 	void cleanupAllocatedMemory();
+	void setupListenerSockets();
+	void handleNewConnection(int _epfd, int listener);
+	void handleClientData(int _epfd, int sender_fd);
+	void setNonblocking(int fd);
 };

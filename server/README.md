@@ -40,7 +40,7 @@ These defaults apply if a directive is not explicitly specified in a server bloc
   - **Purpose:** Specifies the default file to serve when a directory is requested.
 
 - **Client Timeout**
-  - **Context:** Server block
+  - **Context:** Global block
   - **Default:** `75`
   - **Purpose:** Maximum time in seconds to wait for client activity before timing out.
 
@@ -73,6 +73,17 @@ These defaults apply if a directive is not explicitly specified in a server bloc
 
 ---
 
+## Global Directives
+
+These directives must be specified in the global scope (outside of any server block):
+
+- **Client Timeout**
+  - **Context:** Global only
+  - **Default:** `75`
+  - **Usage:** `client_timeout 75;`
+  - **Purpose:** Maximum time in seconds to wait for client activity before timing out.
+
+
 ## Server Block Directives
 
 Within a `server` block, you can specify:
@@ -93,8 +104,8 @@ Within a `server` block, you can specify:
   - **Usage:** `index file1 file2 ...;`
   - **Purpose:** Lists default files to serve for directory requests.
 
-- **client_timeout, client_header_buffer_size, client_max_body_size**
-  - **Usage:** As shown (e.g., `client_timeout 75;`)
+- **client_header_buffer_size, client_max_body_size**
+  - **Usage:** As shown (e.g., `client_header_buffer_size 1k;`)
   - **Occurrence:** Typically one per server block.
 
 - **error_page**
@@ -206,8 +217,10 @@ Below is a summary of an example configuration:
 # - Autoindex: off
 
 server {
-    // (Empty server block - can serve as a fallback)
+    # Empty server block - can serve as a fallback
 }
+
+client_timeout 75;
 
 server {
     listen 80;
@@ -237,7 +250,6 @@ server {
     # Default server-level redirect for unmatched requests:
     return 301 http://example.com/default;
 
-    client_timeout 75;
     client_header_buffer_size 1k;
     client_max_body_size 1m;
 
