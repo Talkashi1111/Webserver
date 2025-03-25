@@ -7,7 +7,8 @@ SERVER_FILES := Main.cpp \
 				Server.cpp \
 				LocationTrie.cpp \
 				Location.cpp \
-				StringUtils.cpp
+				StringUtils.cpp \
+				Connection.cpp
 CLIENT_FILES := client.cpp
 
 CFLAGS := -Wall -Wextra -Werror -std=c++98

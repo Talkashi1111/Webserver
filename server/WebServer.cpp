@@ -1,25 +1,28 @@
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <stdexcept>
-#include <stack>
-#include <vector>
-#include <map>
-#include <set>
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <cstring>
-#include <signal.h>
-#include <errno.h>
-#include <cstdlib>
+// Essential system includes
+#include <sys/epoll.h>	// for epoll functions
+#include <sys/socket.h> // for socket functions
+#include <netdb.h>		// for getaddrinfo
+#include <arpa/inet.h>	// for inet_ntop
+#include <unistd.h>		// for close
+#include <fcntl.h>		// for fcntl
+#include <errno.h>		// for errno
+#include <cstring>		// for strerror
+#include <cstdlib>		// for atoi
+
+// Standard C++ includes
+#include <string>	 // for string operations
+#include <map>		 // for map containers
+#include <set>		 // for set containers
+#include <iostream>	 // for cout/cerr
+#include <fstream>	 // for file operations
+#include <stdexcept> // for exceptions
+#include <sstream>	 // for string stream
+
+// Project includes
 #include "WebServer.hpp"
 #include "Server.hpp"
 #include "Location.hpp"
+#include "Connection.hpp"
 #include "StringUtils.hpp"
 #include "Globals.hpp"
 
@@ -61,7 +64,7 @@ WebServer &WebServer::operator=(const WebServer &other)
 	if (this != &other)
 	{
 		// Clean up existing resources
-		cleanupAllocatedMemory();
+		cleanupServers();
 
 		// Copy basic members
 		_fileName = other._fileName;
@@ -80,7 +83,7 @@ WebServer &WebServer::operator=(const WebServer &other)
 	return *this;
 }
 
-void WebServer::cleanupAllocatedMemory()
+void WebServer::cleanupServers()
 {
 	// Use a set to track unique Server pointers
 	std::set<Server *> unique_servers;
@@ -102,17 +105,32 @@ void WebServer::cleanupAllocatedMemory()
 	_servers.clear();
 }
 
+void WebServer::cleanupConnections()
+{
+	for (std::map<int, Connection *>::iterator it = _connections.begin();
+		 it != _connections.end(); ++it)
+	{
+		delete it->second;
+		if (close(it->first) == -1)
+		{
+			int err = errno;
+			std::cerr << "close (" << it->first << "): " << strerror(err) << std::endl;
+		}
+	}
+	_connections.clear();
+}
+
 WebServer::~WebServer()
 {
-	//TODO: add client connections cleanup
-	closeAllSockets();
+	cleanupConnections();
+	closeListenerSockets();
 	if (_epfd != -1 && close(_epfd) == -1)
 	{
 		int err = errno;
 		std::cerr << "close (" << _epfd << "): " << strerror(err) << std::endl;
 	}
 	_epfd = -1;
-	cleanupAllocatedMemory();
+	cleanupServers();
 }
 
 void WebServer::setClientTimeout(int timeout)
@@ -839,7 +857,7 @@ void WebServer::parseConfig()
 		}
 		// current location cleanup is not needed because it's added to the server
 		// and server cleanup is handled above
-		cleanupAllocatedMemory();
+		cleanupServers();
 		file.close();
 		throw;
 	}
@@ -868,7 +886,7 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6 *)sa)->sin6_addr); // IPv6
 }
 
-void WebServer::closeAllSockets()
+void WebServer::closeListenerSockets()
 {
 	// Close all listener sockets
 	for (std::map<int, std::pair<std::string, std::string> >::iterator it = _listeners.begin();
@@ -934,7 +952,7 @@ void WebServer::setupListenerSockets()
 		{
 			int err = errno;
 			strerr = "socket(" + key.host + ":" + key.port + "): " + strerror(err);
-			closeAllSockets();
+			closeListenerSockets();
 			freeaddrinfo(ai);
 			throw std::runtime_error(strerr);
 		}
@@ -949,7 +967,7 @@ void WebServer::setupListenerSockets()
 				err = errno;
 				std::cerr << "close (" << listener << "): " << strerror(err) << std::endl;
 			}
-			closeAllSockets();
+			closeListenerSockets();
 			freeaddrinfo(ai);
 			throw std::runtime_error(strerr);
 		}
@@ -967,7 +985,7 @@ void WebServer::setupListenerSockets()
 				err = errno;
 				std::cerr << "close (" << listener << "): " << strerror(err) << std::endl;
 			}
-			closeAllSockets();
+			closeListenerSockets();
 			freeaddrinfo(ai);
 			throw std::runtime_error(strerr);
 		}
@@ -986,7 +1004,7 @@ void WebServer::setupListenerSockets()
 	}
 }
 
-void WebServer::handleNewConnection(int _epfd, int listener)
+void WebServer::handleNewConnection(int listener)
 {
 	socklen_t addrlen;
 	struct sockaddr_storage remoteaddr; // Client address
@@ -999,31 +1017,37 @@ void WebServer::handleNewConnection(int _epfd, int listener)
 	if (newfd == -1)
 	{
 		perror("accept");
+		return;
 	}
-	else
+	// Set the new socket to non-blocking mode
+	setNonblocking(newfd);
+	struct epoll_event ev;
+	//TODO: handle EPOLLOUT too and maybe others
+	ev.events = EPOLLIN;
+	ev.data.fd = newfd;
+	if (epoll_ctl(_epfd, EPOLL_CTL_ADD, newfd, &ev) == -1)
 	{
-		// Set the new socket to non-blocking mode
-		setNonblocking(newfd);
-		struct epoll_event ev;
-		ev.events = EPOLLIN;
-		ev.data.fd = newfd;
-		if (epoll_ctl(_epfd, EPOLL_CTL_ADD, newfd, &ev) == -1)
+		perror("epoll_ctl: newfd");
+		if (close(newfd) == -1)
 		{
-			perror("epoll_ctl: newfd");
-			if (close(newfd) == -1)
-			{
-				perror("close newfd");
-			}
+			perror("close newfd");
 		}
-		std::cout << "new connection from "
-				  << inet_ntop(remoteaddr.ss_family,
-							   get_in_addr((struct sockaddr *)&remoteaddr),
-							   remoteIP, INET6_ADDRSTRLEN)
-				  << " on socket " << newfd << std::endl;
 	}
+	// Print info about the new connection
+	std::stringstream ss;
+	ss << "new connection " << inet_ntop(remoteaddr.ss_family,
+										   get_in_addr((struct sockaddr *)&remoteaddr),
+										   remoteIP, INET6_ADDRSTRLEN)
+	   << ":" << ntohs(((struct sockaddr_in *)&remoteaddr)->sin_port)
+	   << " -> " << _listeners[listener].first << ":" << _listeners[listener].second
+	   << " socket " << newfd;
+	std::cout << ss.str() << std::endl;
+
+	// Add the new connection to the map of connections
+	_connections[newfd] = new Connection(newfd, _listeners[listener].first, _listeners[listener].second);
 }
 
-void WebServer::handleClientData(int _epfd, int sender_fd)
+void WebServer::handleClientData(int sender_fd)
 {
 	char buf[kMaxBuff]; // Buffer for client data
 
@@ -1045,16 +1069,7 @@ void WebServer::handleClientData(int _epfd, int sender_fd)
 		{
 			perror("recv");
 		}
-		// It would be enough to close fd, since it's automatically removed from the epoll set
-		// but we do it explicitly to eliminate leaks due to forks or dups that might have happened
-		if (epoll_ctl(_epfd, EPOLL_CTL_DEL, sender_fd, NULL) == -1)
-		{
-			perror("epoll_ctl: sender_fd");
-		}
-		if (close(sender_fd) == -1)
-		{
-			perror("close sender_fd");
-		}
+		handleConnectionClose(sender_fd);
 	}
 	else
 	{
@@ -1078,6 +1093,31 @@ void WebServer::handleClientData(int _epfd, int sender_fd)
 	}
 }
 
+void WebServer::handleConnectionClose(int fd)
+{
+	if (epoll_ctl(_epfd, EPOLL_CTL_DEL, fd, NULL) == -1)
+	{
+		perror("epoll_ctl: del error fd");
+	}
+	// Check if the fd is in the connections map or in the listeners map
+	std::map<int, Connection*>::iterator it = _connections.find(fd);
+	if (it != _connections.end())
+	{
+		delete it->second;
+		_connections.erase(it);
+	}
+	std::map<int, std::pair<std::string, std::string> >::iterator it2 = _listeners.find(fd);
+	if (it2 != _listeners.end())
+	{
+		_listeners.erase(it2);
+	}
+	// Close the socket
+	if (close(fd) == -1)
+	{
+		perror("close fd");
+	}
+}
+
 void WebServer::processPollEvents(int ready)
 {
 	for (int i = 0; i < ready; i++)
@@ -1087,24 +1127,26 @@ void WebServer::processPollEvents(int ready)
 			if (_listeners.find(_evlist[i].data.fd) != _listeners.end()) // the fd is a listener and ready to read
 			{
 				// If listener is ready to read, handle new connection
-				handleNewConnection(_epfd, _evlist[i].data.fd);
+				handleNewConnection(_evlist[i].data.fd);
 			}
 			else
 			{
 				// If not the listener, we're just a regular client
-				handleClientData(_epfd, _evlist[i].data.fd);
+				handleClientData(_evlist[i].data.fd);
 			}
 		}
-		else if (_evlist[i].events & (EPOLLHUP | EPOLLERR))
+		else if (_evlist[i].events & EPOLLHUP)
 		{
-			//TODO: handle listen socket errors and client socket close/errors
-			// An error has occured on this fd, or the socket was closed
-			std::cerr << "epoll error on fd " << _evlist[i].data.fd << std::endl; // why not use epoll_ctl to delete the fd from the epoll set?
-			if (close(_evlist[i].data.fd) == -1)
-			{
-				int err = errno;
-				std::cerr << "close (" << _evlist[i].data.fd << "): " << strerror(err) << std::endl;
-			}
+			// TODO: handle listen socket errors and client socket close/errors
+			//  An error has occured on this fd, or the socket was closed
+			std::cout << "epoll: hangup on fd " << _evlist[i].data.fd << std::endl;
+			handleConnectionClose(_evlist[i].data.fd);
+		}
+		else if (_evlist[i].events & EPOLLERR)
+		{
+			// An error has occured on this fd
+			std::cerr << "epoll: error on fd " << _evlist[i].data.fd << std::endl;
+			handleConnectionClose(_evlist[i].data.fd);
 		}
 		// TODO: handle EPOLLOUT too
 	}
@@ -1276,6 +1318,37 @@ void WebServer::printSettings() const
 	std::cout << "\n===========================\n";
 }
 
+void WebServer::closeExpiredConnections()
+{
+	time_t current_time = time(NULL);
+	if (current_time == static_cast<time_t>(-1))
+	{
+		perror("time");
+		return;
+	}
+
+	std::vector<int> timed_out_fds;
+
+	// If we delete connections from the map while iterating over it, it will invalidate the iterator
+	// so we first collect all timed out connections and then close them.
+	for (std::map<int, Connection*>::iterator it = _connections.begin();
+			it != _connections.end(); ++it)
+	{
+		if (current_time - it->second->getLastActivityTime() > _clientTimeout)
+		{
+			timed_out_fds.push_back(it->first);
+		}
+	}
+
+	// Then close them
+	for (std::vector<int>::iterator it = timed_out_fds.begin();
+			it != timed_out_fds.end(); ++it)
+	{
+		std::cout << "Connection timeout on fd " << *it << std::endl;
+		handleConnectionClose(*it);
+	}
+}
+
 void WebServer::run()
 {
 	this->setupListenerSockets();
@@ -1292,6 +1365,7 @@ void WebServer::run()
 			// TODO: how to handle EINTR? in case of SIGCHLD after fork
 			// when child process is terminated and parent registered signal handler on SIGCHLD
 		}
+		closeExpiredConnections();
 		processPollEvents(ready);
 	}
 }

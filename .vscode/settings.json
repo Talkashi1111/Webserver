@@ -50,6 +50,7 @@
 		"streambuf": "cpp",
 		"typeinfo": "cpp",
 		"set": "cpp",
-		"csignal": "cpp"
+		"csignal": "cpp",
+		"ctime": "cpp"
 	}
 }

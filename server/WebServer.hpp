@@ -5,7 +5,10 @@
 #include <sys/epoll.h>
 #include "Consts.hpp"
 #include "ServerKey.hpp"
-#include "Server.hpp"
+
+class Server;
+class Location;
+class Connection;
 
 const int kMaxEvents = 10;
 
@@ -26,6 +29,7 @@ public:
 
 	void run();
 	void printSettings() const;
+	void closeExpiredConnections();
 
 	// Setters / Getters
 	void setClientTimeout(int timeout);
@@ -36,10 +40,11 @@ private:
 	std::string _fileName;
 	int _epfd;
 	std::map<int, std::pair<std::string, std::string> > _listeners; // key: file descriptor, value: pair of local host and port
-	int _clientTimeout;												// in seconds; Default: 75
+	int _clientTimeout;											   // in seconds; Default: 75
 	bool _clientTimeoutSet;
 	struct epoll_event _evlist[kMaxEvents];
 	std::map<ServerKey, Server *> _servers;
+	std::map<int, Connection *> _connections; // key: file descriptor, value: Connection object
 
 	void parseConfig();
 	void initEpoll();
@@ -59,10 +64,12 @@ private:
 	void inheritServerDirectives(Server *curr_server);
 	void addServer(Server *server);
 	void processPollEvents(int ready);
-	void closeAllSockets();
-	void cleanupAllocatedMemory();
+	void closeListenerSockets();
+	void cleanupServers();
+	void cleanupConnections();
+	void handleConnectionClose(int fd);
 	void setupListenerSockets();
-	void handleNewConnection(int _epfd, int listener);
-	void handleClientData(int _epfd, int sender_fd);
+	void handleNewConnection(int listener);
+	void handleClientData(int sender_fd);
 	void setNonblocking(int fd);
 };
