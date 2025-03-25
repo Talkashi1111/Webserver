@@ -9,3 +9,4 @@ bool isValidAbsolutePath(const std::string &path);
 bool isNumber(const std::string &s);
 std::string getStraddr(struct addrinfo *p);
 void printAddrinfo(const char *host, const char *port, struct addrinfo *ai);
+int convertSizeToBytes(const std::string &size);

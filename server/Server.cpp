@@ -1,12 +1,12 @@
 #include <cstdlib>
 #include "Server.hpp"
 #include "Consts.hpp"
+#include "StringUtils.hpp"
 
 Server::Server() : _listens(),
 				   _serverNames(),
 				   _root(kDefaultRoot),
 				   _index(kDefaultIndex.begin(), kDefaultIndex.end()),
-				   _clientHeaderBufferSize(kDefaultClientHeaderBufferSize),
 				   _clientMaxBodySize(kDefaultClientMaxBodySize),
 				   _errorPages(kDefaultErrorPages),
 				   _allowedMethods(kDefaultAllowedMethods),
@@ -19,7 +19,6 @@ Server::Server() : _listens(),
 				   _serverNamesSet(false),
 				   _rootSet(false),
 				   _indexSet(false),
-				   _clientHeaderBufferSizeSet(false),
 				   _clientMaxBodySizeSet(false),
 				   _errorPagesSet(),
 				   _allowedMethodsSet(false),
@@ -34,7 +33,6 @@ Server::Server(const Server &other) : _listens(other._listens),
 									  _serverNames(other._serverNames),
 									  _root(other._root),
 									  _index(other._index),
-									  _clientHeaderBufferSize(other._clientHeaderBufferSize),
 									  _clientMaxBodySize(other._clientMaxBodySize),
 									  _errorPages(other._errorPages),
 									  _allowedMethods(other._allowedMethods),
@@ -47,7 +45,6 @@ Server::Server(const Server &other) : _listens(other._listens),
 									  _serverNamesSet(other._serverNamesSet),
 									  _rootSet(other._rootSet),
 									  _indexSet(other._indexSet),
-									  _clientHeaderBufferSizeSet(other._clientHeaderBufferSizeSet),
 									  _clientMaxBodySizeSet(other._clientMaxBodySizeSet),
 									  _errorPagesSet(other._errorPagesSet),
 									  _allowedMethodsSet(other._allowedMethodsSet),
@@ -64,7 +61,6 @@ Server &Server::operator=(const Server &other)
 		_serverNames = other._serverNames;
 		_root = other._root;
 		_index = other._index;
-		_clientHeaderBufferSize = other._clientHeaderBufferSize;
 		_clientMaxBodySize = other._clientMaxBodySize;
 		_errorPages = other._errorPages;
 		_allowedMethods = other._allowedMethods;
@@ -77,7 +73,6 @@ Server &Server::operator=(const Server &other)
 		_serverNamesSet = other._serverNamesSet;
 		_rootSet = other._rootSet;
 		_indexSet = other._indexSet;
-		_clientHeaderBufferSizeSet = other._clientHeaderBufferSizeSet;
 		_clientMaxBodySizeSet = other._clientMaxBodySizeSet;
 		_errorPagesSet = other._errorPagesSet;
 		_allowedMethodsSet = other._allowedMethodsSet;
@@ -166,46 +161,6 @@ const std::set<std::string> &Server::getIndex() const
 bool Server::isIndexSet() const
 {
 	return _indexSet;
-}
-
-int Server::convertSizeToBytes(const std::string &size) const
-{
-	size_t len = size.length();
-	int multiplier = 1;
-	std::string number_str;
-
-	if (size[len - 1] == 'k' || size[len - 1] == 'K')
-	{
-		multiplier = 1024;
-		number_str = size.substr(0, len - 1);
-	}
-	else if (size[len - 1] == 'm' || size[len - 1] == 'M')
-	{
-		multiplier = 1024 * 1024;
-		number_str = size.substr(0, len - 1);
-	}
-	else
-	{
-		number_str = size;
-	}
-
-	return atoi(number_str.c_str()) * multiplier;
-}
-
-void Server::setClientHeaderBufferSize(const std::string &size)
-{
-	_clientHeaderBufferSize = convertSizeToBytes(size);
-	_clientHeaderBufferSizeSet = true;
-}
-
-int Server::getClientHeaderBufferSize() const
-{
-	return _clientHeaderBufferSize;
-}
-
-bool Server::isClientHeaderBufferSizeSet() const
-{
-	return _clientHeaderBufferSizeSet;
 }
 
 void Server::setClientMaxBodySize(const std::string &size)

@@ -30,7 +30,9 @@ WebServer::WebServer(const std::string &filename) : _fileName(filename),
 													_epfd(-1),
 													_listeners(),
 													_clientTimeout(kDefaultClientTimeout),
-													_clientTimeoutSet(false)
+													_clientTimeoutSet(false),
+													_clientHeaderBufferSize(kDefaultClientHeaderBufferSize),
+													_clientHeaderBufferSizeSet(false)
 {
 	if (filename.empty())
 	{
@@ -48,7 +50,9 @@ WebServer::WebServer(const WebServer &other) : _fileName(other._fileName),
 											   _epfd(-1),
 											   _listeners(other._listeners),
 											   _clientTimeout(other._clientTimeout),
-											   _clientTimeoutSet(other._clientTimeoutSet)
+											   _clientTimeoutSet(other._clientTimeoutSet),
+											   _clientHeaderBufferSize(other._clientHeaderBufferSize),
+											   _clientHeaderBufferSizeSet(other._clientHeaderBufferSizeSet)
 {
 	// Deep copy each server and store in _servers map
 	for (std::map<ServerKey, Server *>::const_iterator it = other._servers.begin();
@@ -72,6 +76,8 @@ WebServer &WebServer::operator=(const WebServer &other)
 		_listeners = other._listeners;
 		_clientTimeout = other._clientTimeout;
 		_clientTimeoutSet = other._clientTimeoutSet;
+		_clientHeaderBufferSize = other._clientHeaderBufferSize;
+		_clientHeaderBufferSizeSet = other._clientHeaderBufferSizeSet;
 
 		// Deep copy servers
 		for (std::map<ServerKey, Server *>::const_iterator it = other._servers.begin();
@@ -147,6 +153,22 @@ int WebServer::getClientTimeout() const
 bool WebServer::isClientTimeoutSet() const
 {
 	return _clientTimeoutSet;
+}
+
+void WebServer::setClientHeaderBufferSize(const std::string &size)
+{
+	_clientHeaderBufferSize = convertSizeToBytes(size);
+	_clientHeaderBufferSizeSet = true;
+}
+
+int WebServer::getClientHeaderBufferSize() const
+{
+	return _clientHeaderBufferSize;
+}
+
+bool WebServer::isClientHeaderBufferSizeSet() const
+{
+	return _clientHeaderBufferSizeSet;
 }
 
 std::string WebServer::readUntilDelimiter(std::istream &file, const std::string &delimiters)
@@ -504,15 +526,6 @@ void WebServer::handleServerDirective(const std::vector<std::string> &words, Ser
 		for (size_t i = 1; i < words.size(); ++i)
 			curr_server->addIndex(words[i]);
 	}
-	else if (words[0] == "client_header_buffer_size")
-	{
-		if (words.size() != 2)
-			throw std::invalid_argument("Invalid client_header_buffer_size directive");
-		if (curr_server->isClientHeaderBufferSizeSet())
-			throw std::invalid_argument("Duplicate client_header_buffer_size directive");
-		validateSizeFormat(words[1]);
-		curr_server->setClientHeaderBufferSize(words[1]);
-	}
 	else if (words[0] == "client_max_body_size")
 	{
 		if (words.size() != 2)
@@ -656,6 +669,15 @@ void WebServer::handleGlobalDirective(const std::vector<std::string> &words)
 		if (timeout <= 0)
 			throw std::invalid_argument("Invalid timeout in client_timeout directive");
 		setClientTimeout(timeout);
+	}
+	else if (words[0] == "client_header_buffer_size")
+	{
+		if (words.size() != 2)
+			throw std::invalid_argument("Invalid client_header_buffer_size directive");
+		if (isClientHeaderBufferSizeSet())
+			throw std::invalid_argument("Duplicate client_header_buffer_size directive");
+		validateSizeFormat(words[1]);
+		this->setClientHeaderBufferSize(words[1]);
 	}
 	else
 	{

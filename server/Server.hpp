@@ -33,12 +33,6 @@ public:
 
 	// Convert a size string (e.g., "1k", "2m") to bytes.
 	// possible suffixes: k, K, m, M or none (bytes)
-	void setClientHeaderBufferSize(const std::string &size);
-	int getClientHeaderBufferSize() const;
-	bool isClientHeaderBufferSizeSet() const;
-
-	// Convert a size string (e.g., "1k", "2m") to bytes.
-	// possible suffixes: k, K, m, M or none (bytes)
 	void setClientMaxBodySize(const std::string &size);
 	int getClientMaxBodySize() const;
 	bool isClientMaxBodySizeSet() const;
@@ -73,7 +67,6 @@ private:
 	std::set<std::string> _serverNames;			 // e.g., "example.com", "www.example.com"
 	std::string _root;							 // Default: "/var/www/html"
 	std::set<std::string> _index;				 // Default: "index.html"
-	int _clientHeaderBufferSize;				 // in bytes; Default: 1k
 	int _clientMaxBodySize;						 // in bytes; Default: 1m
 	std::map<int, std::string> _errorPages;		 // e.g., 404->"/404.html", 500/502/503/504->"/50x.html"
 	std::map<std::string, bool> _allowedMethods; // Default: GET, POST, DELETE
@@ -87,12 +80,9 @@ private:
 	bool _serverNamesSet;
 	bool _rootSet;
 	bool _indexSet;
-	bool _clientHeaderBufferSizeSet;
 	bool _clientMaxBodySizeSet;
 	std::set<int> _errorPagesSet;
 	bool _allowedMethodsSet;
 	bool _autoindexSet;
 	bool _returnDirectiveSet;
-
-	int convertSizeToBytes(const std::string &size) const;
 };

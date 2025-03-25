@@ -1,5 +1,6 @@
 #include <sstream>
 #include <iostream>
+#include <cstdlib>// for atoi
 #include <arpa/inet.h>
 #include "StringUtils.hpp"
 
@@ -104,4 +105,27 @@ void printAddrinfo(const char *host, const char *port, struct addrinfo *ai)
 		std::string straddr = getStraddr(p);
 		std::cout << "\t" << ipver << ": " << straddr << std::endl;
 	}
+}
+int convertSizeToBytes(const std::string &size)
+{
+	size_t len = size.length();
+	int multiplier = 1;
+	std::string number_str;
+
+	if (size[len - 1] == 'k' || size[len - 1] == 'K')
+	{
+		multiplier = 1024;
+		number_str = size.substr(0, len - 1);
+	}
+	else if (size[len - 1] == 'm' || size[len - 1] == 'M')
+	{
+		multiplier = 1024 * 1024;
+		number_str = size.substr(0, len - 1);
+	}
+	else
+	{
+		number_str = size;
+	}
+
+	return atoi(number_str.c_str()) * multiplier;
 }

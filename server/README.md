@@ -45,7 +45,7 @@ These defaults apply if a directive is not explicitly specified in a server bloc
   - **Purpose:** Maximum time in seconds to wait for client activity before timing out.
 
 - **Client Header Buffer Size**
-  - **Context:** Server block
+  - **Context:** Global block
   - **Default:** `1k`
   - **Purpose:** Limits the size of the header buffer for client requests.
 
@@ -83,6 +83,20 @@ These directives must be specified in the global scope (outside of any server bl
   - **Usage:** `client_timeout 75;`
   - **Purpose:** Maximum time in seconds to wait for client activity before timing out.
 
+- **Client Header Buffer Size**
+  - **Context:** Global only
+  - **Default:** `1k`
+  - **Usage:** `client_header_buffer_size <size>;`
+  - **Example:** `client_header_buffer_size 2k;`
+  - **Purpose:** Sets the size of the buffer used for reading client request headers.
+  - **Format:** Size can be specified in:
+    - Bytes (no suffix): `1024`
+    - Kilobytes: `1k` or `1K`
+    - Megabytes: `1m` or `1M`
+  - **Occurrence:** Once per configuration file
+  - **Note:** If a client sends headers larger than this size, the server will
+    return a 413 Request Entity Too Large error.
+
 
 ## Server Block Directives
 
@@ -104,8 +118,8 @@ Within a `server` block, you can specify:
   - **Usage:** `index file1 file2 ...;`
   - **Purpose:** Lists default files to serve for directory requests.
 
-- **client_header_buffer_size, client_max_body_size**
-  - **Usage:** As shown (e.g., `client_header_buffer_size 1k;`)
+- **client_max_body_size**
+  - **Usage:** `client_max_body_size 1m;`
   - **Occurrence:** Typically one per server block.
 
 - **error_page**
@@ -221,6 +235,7 @@ server {
 }
 
 client_timeout 75;
+client_header_buffer_size 1k;
 
 server {
     listen 80;
@@ -250,7 +265,6 @@ server {
     # Default server-level redirect for unmatched requests:
     return 301 http://example.com/default;
 
-    client_header_buffer_size 1k;
     client_max_body_size 1m;
 
     index index.html;

@@ -36,12 +36,20 @@ public:
 	int getClientTimeout() const;
 	bool isClientTimeoutSet() const;
 
+	// Convert a size string (e.g., "1k", "2m") to bytes.
+	// possible suffixes: k, K, m, M or none (bytes)
+	void setClientHeaderBufferSize(const std::string &size);
+	int getClientHeaderBufferSize() const;
+	bool isClientHeaderBufferSizeSet() const;
+
 private:
 	std::string _fileName;
 	int _epfd;
 	std::map<int, std::pair<std::string, std::string> > _listeners; // key: file descriptor, value: pair of local host and port
 	int _clientTimeout;											   // in seconds; Default: 75
 	bool _clientTimeoutSet;
+	int _clientHeaderBufferSize; 								   // in bytes; Default: 1k
+	bool _clientHeaderBufferSizeSet;
 	struct epoll_event _evlist[kMaxEvents];
 	std::map<ServerKey, Server *> _servers;
 	std::map<int, Connection *> _connections; // key: file descriptor, value: Connection object
