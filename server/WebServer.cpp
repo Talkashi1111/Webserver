@@ -32,7 +32,9 @@ WebServer::WebServer(const std::string &filename) : _fileName(filename),
 													_clientTimeout(kDefaultClientTimeout),
 													_clientTimeoutSet(false),
 													_clientHeaderBufferSize(kDefaultClientHeaderBufferSize),
-													_clientHeaderBufferSizeSet(false)
+													_clientHeaderBufferSizeSet(false),
+													_clientMaxBodySize(kDefaultClientMaxBodySize),
+													_clientMaxBodySizeSet(false)
 {
 	if (filename.empty())
 	{
@@ -52,7 +54,9 @@ WebServer::WebServer(const WebServer &other) : _fileName(other._fileName),
 											   _clientTimeout(other._clientTimeout),
 											   _clientTimeoutSet(other._clientTimeoutSet),
 											   _clientHeaderBufferSize(other._clientHeaderBufferSize),
-											   _clientHeaderBufferSizeSet(other._clientHeaderBufferSizeSet)
+											   _clientHeaderBufferSizeSet(other._clientHeaderBufferSizeSet),
+											   _clientMaxBodySize(other._clientMaxBodySize),
+											   _clientMaxBodySizeSet(other._clientMaxBodySizeSet)
 {
 	// Deep copy each server and store in _servers map
 	for (std::map<ServerKey, Server *>::const_iterator it = other._servers.begin();
@@ -78,6 +82,8 @@ WebServer &WebServer::operator=(const WebServer &other)
 		_clientTimeoutSet = other._clientTimeoutSet;
 		_clientHeaderBufferSize = other._clientHeaderBufferSize;
 		_clientHeaderBufferSizeSet = other._clientHeaderBufferSizeSet;
+		_clientMaxBodySize = other._clientMaxBodySize;
+		_clientMaxBodySizeSet = other._clientMaxBodySizeSet;
 
 		// Deep copy servers
 		for (std::map<ServerKey, Server *>::const_iterator it = other._servers.begin();
@@ -169,6 +175,22 @@ int WebServer::getClientHeaderBufferSize() const
 bool WebServer::isClientHeaderBufferSizeSet() const
 {
 	return _clientHeaderBufferSizeSet;
+}
+
+void WebServer::setClientMaxBodySize(const std::string &size)
+{
+	_clientMaxBodySize = convertSizeToBytes(size);
+	_clientMaxBodySizeSet = true;
+}
+
+int WebServer::getClientMaxBodySize() const
+{
+	return _clientMaxBodySize;
+}
+
+bool WebServer::isClientMaxBodySizeSet() const
+{
+	return _clientMaxBodySizeSet;
 }
 
 std::string WebServer::readUntilDelimiter(std::istream &file, const std::string &delimiters)
@@ -526,7 +548,7 @@ void WebServer::handleServerDirective(const std::vector<std::string> &words, Ser
 		for (size_t i = 1; i < words.size(); ++i)
 			curr_server->addIndex(words[i]);
 	}
-	else if (words[0] == "client_max_body_size")
+	/* else if (words[0] == "client_max_body_size")
 	{
 		if (words.size() != 2)
 			throw std::invalid_argument("Invalid client_max_body_size directive");
@@ -534,7 +556,7 @@ void WebServer::handleServerDirective(const std::vector<std::string> &words, Ser
 			throw std::invalid_argument("Duplicate client_max_body_size directive");
 		validateSizeFormat(words[1]);
 		curr_server->setClientMaxBodySize(words[1]);
-	}
+	} */
 	else if (words[0] == "error_page")
 	{
 		if (words.size() < 3)
@@ -678,6 +700,15 @@ void WebServer::handleGlobalDirective(const std::vector<std::string> &words)
 			throw std::invalid_argument("Duplicate client_header_buffer_size directive");
 		validateSizeFormat(words[1]);
 		this->setClientHeaderBufferSize(words[1]);
+	}
+	else if (words[0] == "client_max_body_size")
+	{
+		if (words.size() != 2)
+			throw std::invalid_argument("Invalid client_max_body_size directive");
+		if (isClientMaxBodySizeSet())
+			throw std::invalid_argument("Duplicate client_max_body_size directive");
+		validateSizeFormat(words[1]);
+		this->setClientMaxBodySize(words[1]);
 	}
 	else
 	{

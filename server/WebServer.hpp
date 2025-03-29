@@ -42,6 +42,11 @@ public:
 	int getClientHeaderBufferSize() const;
 	bool isClientHeaderBufferSizeSet() const;
 
+	// possible suffixes: k, K, m, M or none (bytes)
+	void setClientMaxBodySize(const std::string &size);
+	int getClientMaxBodySize() const;
+	bool isClientMaxBodySizeSet() const;
+
 private:
 	std::string _fileName;
 	int _epfd;
@@ -50,6 +55,8 @@ private:
 	bool _clientTimeoutSet;
 	int _clientHeaderBufferSize; 								   // in bytes; Default: 1k
 	bool _clientHeaderBufferSizeSet;
+	int _clientMaxBodySize;						 				   // in bytes; Default: 1m
+	bool _clientMaxBodySizeSet;
 	struct epoll_event _evlist[kMaxEvents];
 	std::map<ServerKey, Server *> _servers;
 	std::map<int, Connection *> _connections; // key: file descriptor, value: Connection object
