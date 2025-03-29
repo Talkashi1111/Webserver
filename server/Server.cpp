@@ -7,7 +7,6 @@ Server::Server() : _listens(),
 				   _serverNames(),
 				   _root(kDefaultRoot),
 				   _index(kDefaultIndex.begin(), kDefaultIndex.end()),
-				   _clientMaxBodySize(kDefaultClientMaxBodySize),
 				   _errorPages(kDefaultErrorPages),
 				   _allowedMethods(kDefaultAllowedMethods),
 				   _autoindex(kDefaultAutoindex),
@@ -19,7 +18,6 @@ Server::Server() : _listens(),
 				   _serverNamesSet(false),
 				   _rootSet(false),
 				   _indexSet(false),
-				   _clientMaxBodySizeSet(false),
 				   _errorPagesSet(),
 				   _allowedMethodsSet(false),
 				   _autoindexSet(false),
@@ -33,7 +31,6 @@ Server::Server(const Server &other) : _listens(other._listens),
 									  _serverNames(other._serverNames),
 									  _root(other._root),
 									  _index(other._index),
-									  _clientMaxBodySize(other._clientMaxBodySize),
 									  _errorPages(other._errorPages),
 									  _allowedMethods(other._allowedMethods),
 									  _autoindex(other._autoindex),
@@ -45,7 +42,6 @@ Server::Server(const Server &other) : _listens(other._listens),
 									  _serverNamesSet(other._serverNamesSet),
 									  _rootSet(other._rootSet),
 									  _indexSet(other._indexSet),
-									  _clientMaxBodySizeSet(other._clientMaxBodySizeSet),
 									  _errorPagesSet(other._errorPagesSet),
 									  _allowedMethodsSet(other._allowedMethodsSet),
 									  _autoindexSet(other._autoindexSet),
@@ -61,7 +57,6 @@ Server &Server::operator=(const Server &other)
 		_serverNames = other._serverNames;
 		_root = other._root;
 		_index = other._index;
-		_clientMaxBodySize = other._clientMaxBodySize;
 		_errorPages = other._errorPages;
 		_allowedMethods = other._allowedMethods;
 		_autoindex = other._autoindex;
@@ -73,7 +68,6 @@ Server &Server::operator=(const Server &other)
 		_serverNamesSet = other._serverNamesSet;
 		_rootSet = other._rootSet;
 		_indexSet = other._indexSet;
-		_clientMaxBodySizeSet = other._clientMaxBodySizeSet;
 		_errorPagesSet = other._errorPagesSet;
 		_allowedMethodsSet = other._allowedMethodsSet;
 		_autoindexSet = other._autoindexSet;
@@ -161,22 +155,6 @@ const std::set<std::string> &Server::getIndex() const
 bool Server::isIndexSet() const
 {
 	return _indexSet;
-}
-
-void Server::setClientMaxBodySize(const std::string &size)
-{
-	_clientMaxBodySize = convertSizeToBytes(size);
-	_clientMaxBodySizeSet = true;
-}
-
-int Server::getClientMaxBodySize() const
-{
-	return _clientMaxBodySize;
-}
-
-bool Server::isClientMaxBodySizeSet() const
-{
-	return _clientMaxBodySizeSet;
 }
 
 void Server::addErrorPage(int code, const std::string &path)

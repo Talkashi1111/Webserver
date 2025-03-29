@@ -50,7 +50,7 @@ These defaults apply if a directive is not explicitly specified in a server bloc
   - **Purpose:** Limits the size of the header buffer for client requests.
 
 - **Client Max Body Size**
-  - **Context:** Server block
+  - **Context:** Global block
   - **Default:** `1m`
   - **Purpose:** Maximum allowed size for the client’s request body.
 
@@ -97,6 +97,18 @@ These directives must be specified in the global scope (outside of any server bl
   - **Note:** If a client sends headers larger than this size, the server will
     return a 413 Request Entity Too Large error.
 
+- **Client Max Body Size**
+	- **Context:** Global only
+	- **Default:** `1m`
+	- **Usage:** `client_max_body_size <size>;`
+	- **Example:** `client_max_body_size 2m;`
+	- **Purpose:** Limits the size of client request bodies. If the Content-Length header exceeds this value, returns 413 (Request Entity Too Large).
+	- **Format:** Size can be specified in:
+		- Bytes (no suffix): `1024`
+		- Kilobytes: `1k` or `1K`
+		- Megabytes: `1m` or `1M`
+	- **Occurrence:** Once per configuration file
+
 
 ## Server Block Directives
 
@@ -117,10 +129,6 @@ Within a `server` block, you can specify:
 - **index**
   - **Usage:** `index file1 file2 ...;`
   - **Purpose:** Lists default files to serve for directory requests.
-
-- **client_max_body_size**
-  - **Usage:** `client_max_body_size 1m;`
-  - **Occurrence:** Typically one per server block.
 
 - **error_page**
   - **Usage:** `error_page <code> [<code> ...] /path/to/error/page;`
@@ -236,6 +244,7 @@ server {
 
 client_timeout 75;
 client_header_buffer_size 1k;
+client_max_body_size 1m;
 
 server {
     listen 80;
@@ -265,7 +274,6 @@ server {
     # Default server-level redirect for unmatched requests:
     return 301 http://example.com/default;
 
-    client_max_body_size 1m;
 
     index index.html;
 
@@ -302,7 +310,6 @@ server {
     server_name static.site;
     index index.html home.html;
     error_page 404 /404.html;
-    client_max_body_size 5M;
 
     # Default location for static files:
     location / {
