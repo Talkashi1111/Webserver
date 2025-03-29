@@ -72,12 +72,14 @@ private:
 	void inheritServerDirectives(Server *curr_server);
 	void addServer(Server *server);
 	void processPollEvents(int ready);
+	bool updateEpollEvents(int fd, uint32_t events);
 	void closeListenerSockets();
 	void cleanupServers();
 	void cleanupConnections();
 	void handleConnectionClose(int fd);
 	void setupListenerSockets();
 	void handleNewConnection(int listener);
-	void handleClientData(int sender_fd);
-	void setNonblocking(int fd);
+	void handleClientData(int fd);
+	void handleClientSend(int fd);
+	bool setNonblocking(int fd);
 };

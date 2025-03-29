@@ -1,3 +1,4 @@
+#include <ctime>
 #include <sstream>
 #include <iostream>
 #include <cstdlib>// for atoi
@@ -128,4 +129,15 @@ int convertSizeToBytes(const std::string &size)
 	}
 
 	return atoi(number_str.c_str()) * multiplier;
+}
+
+std::string getCurrentTime()
+{
+	char date[100];
+	time_t now = time(0);
+	struct tm tm = *gmtime(&now);
+
+	strftime(date, sizeof(date), "%a, %d %b %Y %H:%M:%S GMT", &tm);
+
+	return std::string(date);
 }

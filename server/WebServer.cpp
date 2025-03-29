@@ -885,16 +885,25 @@ void WebServer::parseConfig()
 	}
 }
 
-void WebServer::setNonblocking(int fd)
+bool WebServer::setNonblocking(int fd)
 {
-	// TODO: didn't use F_GETFL because by default it appends new flags to the existing ones
-	// so not sure if I should use it or not.
-	if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1)
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags == -1)
 	{
 		int err = errno;
-		// TODO: print error? or should throw exception? or just close the socket?
-		std::cerr << "fcntl O_NONBLOCK error (" << fd << "): " << strerror(err) << std::endl;
+		std::cerr << "fcntl F_GETFL error (" << fd << "): " << strerror(err) << std::endl;
+		return false;
 	}
+
+	flags |= O_NONBLOCK;
+	if (fcntl(fd, F_SETFL, flags) == -1)
+	{
+		int err = errno;
+		std::cerr << "fcntl F_SETFL error (" << fd << "): " << strerror(err) << std::endl;
+		return false;
+	}
+
+	return true;
 }
 
 // Get sockaddr, IPv4 or IPv6:
@@ -995,7 +1004,17 @@ void WebServer::setupListenerSockets()
 		}
 
 		// Set the socket to be non-blocking
-		setNonblocking(listener);
+		if (!setNonblocking(listener))
+		{
+			if (close(listener) == -1)
+			{
+				int err = errno;
+				std::cerr << "close (" << listener << "): " << strerror(err) << std::endl;
+			}
+			closeListenerSockets();
+			freeaddrinfo(ai);
+			throw std::runtime_error("Failed to set listener socket to non-blocking mode");
+		}
 
 		// Listen
 		if (listen(listener, 10) == -1)
@@ -1042,9 +1061,16 @@ void WebServer::handleNewConnection(int listener)
 		return;
 	}
 	// Set the new socket to non-blocking mode
-	setNonblocking(newfd);
+	if (!setNonblocking(newfd))
+	{
+		if (close(newfd) == -1)
+		{
+			perror("close newfd");
+		}
+		return;
+	}
+
 	struct epoll_event ev;
-	//TODO: handle EPOLLOUT too and maybe others
 	ev.events = EPOLLIN;
 	ev.data.fd = newfd;
 	if (epoll_ctl(_epfd, EPOLL_CTL_ADD, newfd, &ev) == -1)
@@ -1057,61 +1083,115 @@ void WebServer::handleNewConnection(int listener)
 	}
 	// Print info about the new connection
 	std::stringstream ss;
-	ss << "new connection " << inet_ntop(remoteaddr.ss_family,
-										   get_in_addr((struct sockaddr *)&remoteaddr),
-										   remoteIP, INET6_ADDRSTRLEN)
+	ss << "new connection " << inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr *)&remoteaddr), remoteIP, INET6_ADDRSTRLEN)
 	   << ":" << ntohs(((struct sockaddr_in *)&remoteaddr)->sin_port)
 	   << " -> " << _listeners[listener].first << ":" << _listeners[listener].second
 	   << " socket " << newfd;
 	std::cout << ss.str() << std::endl;
 
 	// Add the new connection to the map of connections
-	_connections[newfd] = new Connection(newfd, _listeners[listener].first, _listeners[listener].second);
+	_connections[newfd] = new Connection(newfd, _listeners[listener].first, _listeners[listener].second, _clientHeaderBufferSize);
 }
 
-void WebServer::handleClientData(int sender_fd)
+void WebServer::handleClientData(int fd)
 {
 	char buf[kMaxBuff]; // Buffer for client data
 
-	int nbytes = recv(sender_fd, buf, sizeof buf, 0);
-	if (nbytes <= 0)
+	int nbytes = recv(fd, buf, sizeof buf, 0);
+	if (nbytes < 0)
 	{
-		// Got error or connection closed by client
-		if (nbytes == 0)
+		// Error receiving data
+		int sockErr = 0;
+		socklen_t sockErrLen = sizeof(sockErr);
+		if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &sockErr, &sockErrLen) == -1)
 		{
-			// Connection closed
-			std::cout << "socket " << sender_fd << " hung up" << std::endl;
-		}
-		else if (errno == EAGAIN || errno == EWOULDBLOCK)
-		{
-			// No data available
-			return;
+			perror("getsockopt");
 		}
 		else
 		{
-			perror("recv");
+			if (!sockErr) // Not really an error just try again later
+			{
+				// No data available
+				return;
+			}
+			else
+			{
+				perror("recv");
+			}
 		}
-		handleConnectionClose(sender_fd);
+		handleConnectionClose(fd);
+	}
+	else if (nbytes == 0)
+	{
+		// Connection closed
+		std::cout << "socket " << fd << " hung up" << std::endl;
+		handleConnectionClose(fd);
+	}
+	else // We got some data from a client
+	{
+		RequestState state = _connections[fd]->handleClientData(buf);
+		// If the request is done, send the response at next EPOLLOUT event
+		if (state == S_DONE || state == S_ERROR)
+		{
+			// Now we listen only on EPOLLOUT
+			if (updateEpollEvents(fd, EPOLLOUT) == false)
+			{
+				handleConnectionClose(fd);
+			}
+		}
+	}
+}
+
+void WebServer::handleClientSend(int fd)
+{
+	// Send the response to the client
+	std::string response = _connections[fd]->getResponse();
+	int nbytes = send(fd, response.c_str(), response.length(), 0);
+	if (nbytes >= 0)
+	{
+		_connections[fd]->updateActivityTime();
+		_connections[fd]->eraseResponse(nbytes);
+		if (_connections[fd]->getResponse().empty())
+		{
+			// Response sent, remove EPOLLOUT
+			if (updateEpollEvents(fd, EPOLLIN) == false)
+			{
+				handleConnectionClose(fd);
+				return;
+			}
+			if (_connections[fd]->isKeepAlive())
+			{
+				// Reset the connection for the next request
+				_connections[fd]->reset();
+			}
+			else
+			{
+				handleConnectionClose(fd);
+			}
+		}
 	}
 	else
 	{
-		// TODO: implement EPOLLOUT logic with EAGAIN and EWOULDBLOCK
-		// Send a dummy HTTP response
-		const char *http_response =
-			"HTTP/1.1 200 OK\r\n"
-			"Date: Fri, 07 Feb 2025 21:00:00 GMT\r\n"
-			"Server: MyWebServer/1.0\r\n"
-			"Content-Length: 13\r\n"
-			"Content-Type: text/plain\r\n"
-			"Connection: close\r\n"
-			"\r\n"
-			"Hello, world!";
-
-		int response_len = strlen(http_response); // not sure we can use it
-		if (send(sender_fd, http_response, response_len, 0) == -1)
+		// Error sending data
+		int sockErr = 0;
+		socklen_t sockErrLen = sizeof(sockErr);
+		if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &sockErr, &sockErrLen) == -1)
 		{
-			perror("send");
+			perror("getsockopt");
 		}
+		else
+		{
+			if (!sockErr)
+			{
+				// Socket buffer is full, keep EPOLLOUT
+				return;
+			}
+			else
+			{
+				perror("send");
+			}
+		}
+		handleConnectionClose(fd);
 	}
 }
 
@@ -1122,7 +1202,7 @@ void WebServer::handleConnectionClose(int fd)
 		perror("epoll_ctl: del error fd");
 	}
 	// Check if the fd is in the connections map or in the listeners map
-	std::map<int, Connection*>::iterator it = _connections.find(fd);
+	std::map<int, Connection *>::iterator it = _connections.find(fd);
 	if (it != _connections.end())
 	{
 		delete it->second;
@@ -1146,7 +1226,7 @@ void WebServer::processPollEvents(int ready)
 	{
 		if (_evlist[i].events & EPOLLIN)
 		{
-			if (_listeners.find(_evlist[i].data.fd) != _listeners.end()) // the fd is a listener and ready to read
+			if (_listeners.find(_evlist[i].data.fd) != _listeners.end())
 			{
 				// If listener is ready to read, handle new connection
 				handleNewConnection(_evlist[i].data.fd);
@@ -1157,10 +1237,13 @@ void WebServer::processPollEvents(int ready)
 				handleClientData(_evlist[i].data.fd);
 			}
 		}
+		else if (_evlist[i].events & EPOLLOUT)
+		{
+			handleClientSend(_evlist[i].data.fd);
+		}
 		else if (_evlist[i].events & EPOLLHUP)
 		{
-			// TODO: handle listen socket errors and client socket close/errors
-			//  An error has occured on this fd, or the socket was closed
+			// An error has occured on this fd, or the socket was closed
 			std::cout << "epoll: hangup on fd " << _evlist[i].data.fd << std::endl;
 			handleConnectionClose(_evlist[i].data.fd);
 		}
@@ -1170,8 +1253,24 @@ void WebServer::processPollEvents(int ready)
 			std::cerr << "epoll: error on fd " << _evlist[i].data.fd << std::endl;
 			handleConnectionClose(_evlist[i].data.fd);
 		}
-		// TODO: handle EPOLLOUT too
+		else
+		{
+			// Don't do anything if the event is not one of the above
+		}
 	}
+}
+
+bool WebServer::updateEpollEvents(int fd, uint32_t events)
+{
+	struct epoll_event ev;
+	ev.events = events;
+	ev.data.fd = fd;
+	if (epoll_ctl(_epfd, EPOLL_CTL_MOD, fd, &ev) == -1)
+	{
+		perror("epoll_ctl: mod error fd");
+		return false;
+	}
+	return true;
 }
 
 void WebServer::initEpoll()
@@ -1353,8 +1452,8 @@ void WebServer::closeExpiredConnections()
 
 	// If we delete connections from the map while iterating over it, it will invalidate the iterator
 	// so we first collect all timed out connections and then close them.
-	for (std::map<int, Connection*>::iterator it = _connections.begin();
-			it != _connections.end(); ++it)
+	for (std::map<int, Connection *>::iterator it = _connections.begin();
+		 it != _connections.end(); ++it)
 	{
 		if (current_time - it->second->getLastActivityTime() > _clientTimeout)
 		{
@@ -1364,7 +1463,7 @@ void WebServer::closeExpiredConnections()
 
 	// Then close them
 	for (std::vector<int>::iterator it = timed_out_fds.begin();
-			it != timed_out_fds.end(); ++it)
+		 it != timed_out_fds.end(); ++it)
 	{
 		std::cout << "Connection timeout on fd " << *it << std::endl;
 		handleConnectionClose(*it);

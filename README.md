@@ -106,7 +106,3 @@ After processing, all the listener file descriptors (both IPv4 and IPv6) are mer
 ## Result
 - The webserver now uses `epoll()` for event handling.
 - This change ensures efficient monitoring of all listener sockets, even as their number increases.
-
-## TODO
-1. keep track on new connection in order to close the fd of this connection after finishing. (right now there is a leak of open fd).
-2. to pack it up in a class form that will be more CPP ( one class that will contain : epollfd, listeners, event_struct, and new client connection).

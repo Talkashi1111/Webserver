@@ -1,23 +1,41 @@
 #include <unistd.h>
 #include <cstdio>
 #include <iostream>
+#include <sstream>
 #include "Connection.hpp"
+#include "Server.hpp"
+#include "Location.hpp"
+#include "HttpRequest.hpp"
+#include "HttpResponse.hpp"
+#include "Consts.hpp"
+#include "StringUtils.hpp"
 
-Connection::Connection(int fd, const std::string &port, const std::string &host) : _fd(fd),
-																				   _port(port),
-																				   _host(host),
-																				   _lastActivityTime(time(0)),
-																				   _serverConfig(NULL),
-																				   _locationConfig(NULL)
+Connection::Connection(int fd,
+					   const std::string &port,
+					   const std::string &host,
+					   int clientHeaderBufferSize) : _fd(fd),
+													 _port(port),
+													 _host(host),
+													 _lastActivityTime(time(0)),
+													 _serverConfig(NULL),
+													 _locationConfig(NULL),
+													 _request(clientHeaderBufferSize),
+													 _response(),
+													 _clientHeaderBufferSize(clientHeaderBufferSize),
+													 _keepAlive(true)
 {
 }
 
 Connection::Connection(const Connection &connection) : _fd(connection._fd),
-														_port(connection._port),
-														_host(connection._host),
-														_lastActivityTime(connection._lastActivityTime),
-														_serverConfig(connection._serverConfig),
-														_locationConfig(connection._locationConfig)
+													   _port(connection._port),
+													   _host(connection._host),
+													   _lastActivityTime(connection._lastActivityTime),
+													   _serverConfig(connection._serverConfig),
+													   _locationConfig(connection._locationConfig),
+													   _request(connection._request),
+													   _response(connection._response),
+													   _clientHeaderBufferSize(connection._clientHeaderBufferSize),
+													   _keepAlive(connection._keepAlive)
 {
 }
 
@@ -31,6 +49,10 @@ Connection &Connection::operator=(const Connection &connection)
 		_lastActivityTime = connection._lastActivityTime;
 		_serverConfig = connection._serverConfig;
 		_locationConfig = connection._locationConfig;
+		_request = connection._request;
+		_response = connection._response;
+		_clientHeaderBufferSize = connection._clientHeaderBufferSize;
+		_keepAlive = connection._keepAlive;
 	}
 	return *this;
 }
@@ -104,3 +126,64 @@ void Connection::setLocationConfig(Location *locationConfig)
 	_locationConfig = locationConfig;
 }
 
+const std::string &Connection::getResponse() const
+{
+	return _response.getResponse();
+}
+
+void Connection::eraseResponse(int nbytes)
+{
+	_response.eraseResponse(nbytes);
+}
+
+bool Connection::isKeepAlive() const
+{
+	return _keepAlive;
+}
+
+RequestState Connection::handleClientData(const std::string &raw)
+{
+	try
+	{
+		_lastActivityTime = time(0);
+		_request.parseRequest(raw);
+
+		if (_request.getState() == S_DONE)
+		{
+			//TODO: init Server and Location and generate response
+		}
+		return _request.getState();
+	}
+	catch (const std::exception &e)
+	{
+		std::string statusCode = e.what();
+		std::string statusText = kStatusCodes.find(statusCode)->second;
+		std::string body =
+			"<html>\n"
+			"<head><title>" + statusCode + " " + statusText + "</title></head>\n"
+			"<body>\n"
+			"<center><h1>" + statusCode + " " + statusText + "</h1></center>\n"
+			"<hr><center>webserver/1.0</center>\n"
+			"</body>\n"
+			"</html>\n";
+		std::ostringstream oss;
+		oss << "HTTP/1.1 " << statusCode << " " << statusText << "\r\n";
+		oss << "Server: webserver/1.0\r\n";
+		oss << "Date: " << getCurrentTime() << "\r\n";
+		oss << "Content-Type: text/html\r\n";
+		oss << "Content-Length: " << body.length() << "\r\n";
+		oss << "Connection: close\r\n";
+		oss << "\r\n" << body;
+		_response.setResponse(oss.str());
+		_keepAlive = false;
+		return S_ERROR;
+	}
+}
+
+void Connection::reset()
+{
+	_request = HttpRequest(_clientHeaderBufferSize);
+	_response = HttpResponse();
+	_serverConfig = NULL;
+	_locationConfig = NULL;
+}
