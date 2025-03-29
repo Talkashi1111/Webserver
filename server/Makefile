@@ -1,14 +1,28 @@
-NAME :=  server client
+NAME :=  webserv client
 INCLUDE_DIR :=
-SERVER_FILES := server.cpp
+SERVER_FILES := Main.cpp \
+				Consts.cpp \
+				WebServer.cpp \
+				ServerKey.cpp \
+				Server.cpp \
+				LocationTrie.cpp \
+				Location.cpp \
+				StringUtils.cpp \
+				Connection.cpp \
+				HttpRequest.cpp \
+				HttpResponse.cpp
 CLIENT_FILES := client.cpp
-CFLAGS := -Wall -Wextra -Werror -std=c++98 -g
+
+CFLAGS := -Wall -Wextra -Werror -std=c++98
+ifdef DEBUG
+    CFLAGS += -DDEBUG=1 -g
+endif
+
 UNAME := $(shell uname)
 ifeq ($(UNAME),Darwin)
 	LEAK_TOOL := leaks -atExit --
-	HOSTNAME := $(shell whoami)
 else
-	LEAK_TOOL := valgrind --leak-check=full
+	LEAK_TOOL := valgrind --leak-check=full --show-leak-kinds=all --track-fds=yes
 endif
 IFLAGS :=
 SERVER_OBJ := $(SERVER_FILES:.cpp=.o)
@@ -16,13 +30,13 @@ CLIENT_OBJ := $(CLIENT_FILES:.cpp=.o)
 CC := c++
 
 
-.PHONY: all clean fclean re server client leak
+.PHONY: all clean fclean re webserv client leak
 
 all: $(NAME)
 
 
-server: $(SERVER_OBJ)
-	$(CC) $(CFLAGS) $(SERVER_OBJ) -o server
+webserv: $(SERVER_OBJ)
+	$(CC) $(CFLAGS) $(SERVER_OBJ) -o webserv
 
 client: $(CLIENT_OBJ)
 	$(CC) $(CFLAGS) $(CLIENT_OBJ) -o client
@@ -39,5 +53,5 @@ fclean: clean
 re: fclean all
 
 leak: $(NAME)
-	$(LEAK_TOOL) ./server ./client
+	$(LEAK_TOOL) ./webserv
 
