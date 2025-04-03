@@ -44,7 +44,7 @@ public:
 
 	// possible suffixes: k, K, m, M or none (bytes)
 	void setClientMaxBodySize(const std::string &size);
-	int getClientMaxBodySize() const;
+	size_t getClientMaxBodySize() const;
 	bool isClientMaxBodySizeSet() const;
 
 private:
@@ -55,7 +55,7 @@ private:
 	bool _clientTimeoutSet;
 	int _clientHeaderBufferSize; 								   // in bytes; Default: 1k
 	bool _clientHeaderBufferSizeSet;
-	int _clientMaxBodySize;						 				   // in bytes; Default: 1m
+	size_t _clientMaxBodySize;						 				   // in bytes; Default: 1m
 	bool _clientMaxBodySizeSet;
 	struct epoll_event _evlist[kMaxEvents];
 	std::map<ServerKey, Server *> _servers;
@@ -86,7 +86,7 @@ private:
 	void handleConnectionClose(int fd);
 	void setupListenerSockets();
 	void handleNewConnection(int listener);
-	void handleClientData(int fd);
+	void handleClientRecv(int fd);
 	void handleClientSend(int fd);
 	bool setNonblocking(int fd);
 };

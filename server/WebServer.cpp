@@ -183,7 +183,7 @@ void WebServer::setClientMaxBodySize(const std::string &size)
 	_clientMaxBodySizeSet = true;
 }
 
-int WebServer::getClientMaxBodySize() const
+size_t WebServer::getClientMaxBodySize() const
 {
 	return _clientMaxBodySize;
 }
@@ -1121,10 +1121,10 @@ void WebServer::handleNewConnection(int listener)
 	std::cout << ss.str() << std::endl;
 
 	// Add the new connection to the map of connections
-	_connections[newfd] = new Connection(newfd, _listeners[listener].first, _listeners[listener].second, _clientHeaderBufferSize);
+	_connections[newfd] = new Connection(newfd, _listeners[listener].first, _listeners[listener].second, _clientHeaderBufferSize, this);
 }
 
-void WebServer::handleClientData(int fd)
+void WebServer::handleClientRecv(int fd)
 {
 	char buf[kMaxBuff]; // Buffer for client data
 
@@ -1160,7 +1160,8 @@ void WebServer::handleClientData(int fd)
 	}
 	else // We got some data from a client
 	{
-		RequestState state = _connections[fd]->handleClientData(buf);
+		buf[nbytes] = '\0';
+		RequestState state = _connections[fd]->handleClientRecv(buf);
 		// If the request is done, send the response at next EPOLLOUT event
 		if (state == S_DONE || state == S_ERROR)
 		{
@@ -1190,6 +1191,7 @@ void WebServer::handleClientSend(int fd)
 				handleConnectionClose(fd);
 				return;
 			}
+
 			if (_connections[fd]->isKeepAlive())
 			{
 				// Reset the connection for the next request
@@ -1265,7 +1267,7 @@ void WebServer::processPollEvents(int ready)
 			else
 			{
 				// If not the listener, we're just a regular client
-				handleClientData(_evlist[i].data.fd);
+				handleClientRecv(_evlist[i].data.fd);
 			}
 		}
 		else if (_evlist[i].events & EPOLLOUT)

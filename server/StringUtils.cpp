@@ -141,3 +141,12 @@ std::string getCurrentTime()
 
 	return std::string(date);
 }
+
+bool validHttpRequestChar(char c)
+{
+	const std::string allowedSymbols = "!#$%&'*+-.^_`|~";
+	if ((c >= 'a' && c <= 'z') || allowedSymbols.find(c) != std::string::npos ||
+		(c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+		return true;
+	return false;
+}

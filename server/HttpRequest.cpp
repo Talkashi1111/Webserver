@@ -1,19 +1,30 @@
-#include <cstdlib>		// for atoi
+#include <cstdlib> // for atoi
 #include <iostream>
+#include <stdexcept>
+#include <sstream>// for stringstream
+#include <climits> // for LONG_MAX
+#include <cerrno>
+#include "Globals.hpp"
 #include "HttpRequest.hpp"
 #include "Consts.hpp"
+#include "StringUtils.hpp"
 
-HttpRequest::HttpRequest(int clientHeaderBufferSize) : _state(S_METHOD),
-													   _method(""),
-													   _target(""),
-													   _query(""),
-													   _version(""),
-													   _headers(),
-													   _body(""),
-													   _headerLength(0),
-													   _clientHeaderBufferSize(clientHeaderBufferSize),
-													   _currentHeaderName(""),
-													   _currentHeaderValue("")
+HttpRequest::HttpRequest(int clientHeaderBufferSize, int clientMaxBodySize) : _state(S_START),
+																			  _method(""),
+																			  _target(""),
+																			  _query(""),
+																			  _version(""),
+																			  _headers(),
+																			  _body(""),
+																			  _headerLength(0),
+																			  _clientHeaderBufferSize(clientHeaderBufferSize),
+																			  _clientMaxBodySize(clientMaxBodySize),
+																			  _currentHeaderName(""),
+																			  _currentHeaderValue(""),
+																			  _expectedBodyLength(0),
+																			  _currentChunkSize(0),
+																			  _currentChunkRead(0),
+																			  _chunkSizeLine("")
 {
 }
 
@@ -26,8 +37,13 @@ HttpRequest::HttpRequest(const HttpRequest &src) : _state(src._state),
 												   _body(src._body),
 												   _headerLength(src._headerLength),
 												   _clientHeaderBufferSize(src._clientHeaderBufferSize),
+												   _clientMaxBodySize(src._clientMaxBodySize),
 												   _currentHeaderName(src._currentHeaderName),
-												   _currentHeaderValue(src._currentHeaderValue)
+												   _currentHeaderValue(src._currentHeaderValue),
+												   _expectedBodyLength(src._expectedBodyLength),
+												   _currentChunkSize(src._currentChunkSize),
+												   _currentChunkRead(src._currentChunkRead),
+												   _chunkSizeLine(src._chunkSizeLine)
 {
 }
 
@@ -44,8 +60,13 @@ HttpRequest &HttpRequest::operator=(const HttpRequest &src)
 		_body = src._body;
 		_headerLength = src._headerLength;
 		_clientHeaderBufferSize = src._clientHeaderBufferSize;
+		_clientMaxBodySize = src._clientMaxBodySize;
 		_currentHeaderName = src._currentHeaderName;
 		_currentHeaderValue = src._currentHeaderValue;
+		_expectedBodyLength = src._expectedBodyLength;
+		_currentChunkSize = src._currentChunkSize;
+		_currentChunkRead = src._currentChunkRead;
+		_chunkSizeLine = src._chunkSizeLine;
 	}
 	return *this;
 }
@@ -59,7 +80,6 @@ RequestState HttpRequest::getState() const
 	return _state;
 }
 
-//TODO: add reset state logic
 void HttpRequest::parseRequest(const std::string &raw)
 {
 	for (std::size_t i = 0; i < raw.size(); i++)
@@ -67,6 +87,9 @@ void HttpRequest::parseRequest(const std::string &raw)
 		char c = raw[i];
 		switch (_state)
 		{
+		case S_START:
+			parseStart(c);
+			break;
 		case S_METHOD:
 			parseMethod(c);
 			_headerLength++;
@@ -111,15 +134,45 @@ void HttpRequest::parseRequest(const std::string &raw)
 			parseHeaderValue(c);
 			_headerLength++;
 			break;
+		case S_HEADER_CR:
+			parseHeaderCR(c);
+			_headerLength++;
+			break;
+		case S_HEADER_LF:
+			parseHeaderLF(c);
+			_headerLength++;
+			break;
 		case S_HEADER_END:
 			parseHeaderEnd(c);
 			_headerLength++;
 			break;
+		case S_HEX:
+			parseHex(c); // TODO: enforce protection against buffer overflow
+			break;
+		case S_HEX_END:
+			parseHexEnd(c);
+			break;
+		case S_CHUNK:
+			parseChunk(c);
+			break;
+		case S_CHUNK_END:
+			parseChunkEnd(c);
+			break;
 		case S_BODY:
 			parseBody(c);
 			break;
+		case S_BODY_END:
+			parseBodyEnd(c);
+			break;
+		case S_BODY_LF:
+			parseBodyLF(c);
+			break;
+		case S_MESSAGE_END:
+			parseMessageEnd(c);
+			break;
 		case S_DONE:
-			return;
+			printRequestDBG();
+			return; // TODO: should we just return here?
 		case S_ERROR:
 		default:
 			throw std::runtime_error("400");
@@ -133,6 +186,38 @@ void HttpRequest::parseRequest(const std::string &raw)
 	}
 }
 
+void HttpRequest::parseStart(char c)
+{
+	if (c == '\r')
+	{
+		_state = S_RESTART;
+		return;
+	}
+	else if (c == 'G' || c == 'P' || c == 'D') // GET POST DELETE
+	{
+		_headerLength++;
+		_method += c;
+		_state = S_METHOD;
+		return;
+	}
+	else
+	{
+		_state = S_ERROR;
+		throw std::runtime_error("400");
+	}
+}
+
+void HttpRequest::parseRestart(char c)
+{
+	if (c == '\n')
+	{
+		_state = S_START;
+		return;
+	}
+	_state = S_ERROR;
+	throw std::runtime_error("400");
+}
+
 void HttpRequest::parseMethod(char c)
 {
 	if (_method.length() > 6)
@@ -141,7 +226,7 @@ void HttpRequest::parseMethod(char c)
 		throw std::runtime_error("405");
 	}
 	// GET POST or DELETE
-	else if (c == 'G' || c == 'E' || c == 'T' || c == 'P' || c == 'U' || c == 'D' || c == 'L' || c == 'O' || c == 'S')
+	else if (c == 'E' || c == 'T' || c == 'U' || c == 'L' || c == 'O' || c == 'S')
 	{
 		_method += c;
 	}
@@ -155,11 +240,16 @@ void HttpRequest::parseMethod(char c)
 			throw std::runtime_error("405");
 		}
 	}
+	else
+	{
+		_state = S_ERROR;
+		throw std::runtime_error("405");
+	}
 }
 
 void HttpRequest::parseSpacesBeforeUri(char c)
 {
-	if (c == ' ' || c == '\t') // some server accept \t as well
+	if (c == ' ')
 		return;
 
 	if (c == '/')
@@ -220,7 +310,7 @@ void HttpRequest::parseFragment(char c)
 
 void HttpRequest::parseSpacesBeforeVersion(char c)
 {
-	if (c == ' ' || c == '\t') // some server accept \t as well
+	if (c == ' ')
 		return;
 	else if (c == 'H')
 	{
@@ -244,12 +334,13 @@ void HttpRequest::parseVersion(char c)
 			_state = S_ERROR;
 			// If it's a valid HTTP version format but not 1.1
 			if (_version.size() == 8 &&
-			_version.substr(0, 5) == "HTTP/" &&
-			_version[5] >= '0' && _version[5] <= '9' &&
-			_version[6] == '.' &&
-			_version[7] >= '0' && _version[7] <= '9')
+				_version.substr(0, 5) == "HTTP/" &&
+				_version[5] >= '1' && _version[5] <= '9' &&
+				_version[6] == '.' &&
+				_version[7] >= '0' && _version[7] <= '9')
 			{
 				throw std::runtime_error("505"); // HTTP Version Not Supported
+				//in real nginx, it will accept anything that start at 1.0 but bad request from 0.0 and accept anything after 1.0. from 2.0 method not supported
 			}
 			throw std::runtime_error("400"); // Bad Request
 		}
@@ -290,29 +381,34 @@ void HttpRequest::parseRequestLineEnd(char c)
 
 void HttpRequest::parseHeaderName(char c)
 {
-	if (c == '\r')
+	if (c == ':')
 	{
-		_state = S_HEADER_END;
-		return;
-	}
-	else if (c == ':')
-	{
+		if (_currentHeaderName.empty())
+		{
+			_state = S_ERROR;
+			throw std::runtime_error("400");
+		}
+
+
 		_state = S_HEADER_COLON;
 		return;
 	}
 
-	if (c < 32 || c >= 127)
+	if (!validHttpRequestChar(c) && !std::isspace(c)) // TODO: a-z , 0-9 and tchar
 	{
 		_state = S_ERROR;
 		throw std::runtime_error("400");
 	}
 
-	_currentHeaderName += c;
+	if (c >= 'A' && c <= 'Z')
+		_currentHeaderName += c + 32; // convert to lower case
+	else
+		_currentHeaderName += c;
 }
 
 void HttpRequest::parseHeaderColon(char c)
 {
-	if (c == ' ' || c == '\t') // some server accept \t as well
+	if (c == ' ' || c == '\t')
 		return;
 
 	if (c < 32 || c >= 127)
@@ -322,15 +418,28 @@ void HttpRequest::parseHeaderColon(char c)
 	}
 
 	_state = S_HEADER_VALUE;
-	_currentHeaderValue += c;
+	_currentHeaderValue += c; // TODO: a-z , 0-9 and tchar
 }
 
 void HttpRequest::parseHeaderValue(char c)
 {
 	if (c == '\r')
 	{
-		_state = S_HEADER_END;
-		_headers[_currentHeaderName] = _currentHeaderValue;
+		_state = S_HEADER_CR;
+		if (_headers.find("host") != _headers.end() && _currentHeaderName == "host")
+		{
+			_state = S_ERROR;
+			throw std::runtime_error("400");
+		} // TODO: handle additional duplicates
+
+		if (_currentHeaderName == "transfer-encoding" && _headers.find("transfer-encoding") != _headers.end())
+		{
+			_headers["transfer-encoding"] += ", " + _currentHeaderValue;
+		}
+		else
+		{
+			_headers[_currentHeaderName] = _currentHeaderValue;
+		}
 		_currentHeaderName = "";
 		_currentHeaderValue = "";
 		return;
@@ -342,25 +451,14 @@ void HttpRequest::parseHeaderValue(char c)
 		throw std::runtime_error("400");
 	}
 
-	_currentHeaderValue += c;
+	_currentHeaderValue += c; // TODO: handle whitespace trimming (trailing) and how we handle whitespaces between values
 }
 
-void HttpRequest::parseHeaderEnd(char c)
+void HttpRequest::parseHeaderCR(char c)
 {
 	if (c == '\n')
 	{
-		// Check if there is a body
-		if (_headers.find("Content-Length") != _headers.end())
-		{
-			_state = S_BODY;
-			return;
-		}
-		else if (_headers.find("Transfer-Encoding") != _headers.end())
-		{
-			_state = S_DONE;
-			return;
-		}
-		_state = S_DONE;
+		_state = S_HEADER_LF;
 		return;
 	}
 
@@ -368,49 +466,225 @@ void HttpRequest::parseHeaderEnd(char c)
 	throw std::runtime_error("400");
 }
 
-void HttpRequest::parseBody(char c)
+void HttpRequest::parseHeaderLF(char c)
 {
-	std::map<std::string, std::string>::const_iterator it = _headers.find("Content-Length");
-	if (it == _headers.end())
-	{
-		_state = S_ERROR;
-		throw std::runtime_error("411"); // Length Required
-	}
 
-	// Validate Content-Length is a valid number
-	const std::string &lenStr = it->second;
-	for (std::string::const_iterator ch = lenStr.begin(); ch != lenStr.end(); ++ch)
+	if (c == '\r')
 	{
-		if (!isdigit(*ch))
+		if (_headers.find("host") == _headers.end())
 		{
 			_state = S_ERROR;
-			throw std::runtime_error("400"); // Bad Request
+			throw std::runtime_error("400");
 		}
+		_state = S_HEADER_END;
+		return;
 	}
-
-	size_t contentLength;
-	try
-	{
-		contentLength = static_cast<size_t>(std::atoi(lenStr.c_str()));
-	}
-	catch (...)
+	else if (c <= 32 || c >= 127)
 	{
 		_state = S_ERROR;
 		throw std::runtime_error("400");
 	}
+	_state = S_HEADER_NAME;
+	if (validHttpRequestChar(c))
+		_currentHeaderName += c; // TODO: check TCHAR
+	return;
+}
 
-	// Check if body exceeds Content-Length
-	if (_body.size() >= contentLength)
+
+void HttpRequest::parseHeaderEnd(char c)
+{
+	if (c == '\n')
+	{
+		// Check if there is a body
+		if (_headers.find("transfer-encoding") != _headers.end() &&
+			_headers["transfer-encoding"] == "chunked")
+		{
+			_state = S_HEX;
+			return;
+		}
+		else if (_headers.find("content-length") != _headers.end())
+		{
+			try
+			{
+				std::istringstream iss(_headers["content-length"]);
+				iss >> _expectedBodyLength;
+				if (iss.fail() || !iss.eof())
+				{
+					_state = S_ERROR;
+					throw std::runtime_error("400");
+				}
+				else if (_expectedBodyLength > _clientMaxBodySize)
+				{
+					_state = S_ERROR;
+					throw std::runtime_error("413");
+				}
+			}
+			catch (std::invalid_argument &ia)
+			{
+				_state = S_ERROR;
+				throw std::runtime_error("400");
+			}
+			_state = S_BODY;
+			if (_expectedBodyLength == 0)
+				_state = S_DONE;
+			return;
+		}
+		else
+		{
+			_state = S_DONE;
+			return;
+		}
+	}
+	_state = S_ERROR;
+	throw std::runtime_error("400");
+}
+
+void HttpRequest::parseHex(char c)
+{
+	if (c == '\r')
+	{
+		if (_chunkSizeLine.empty())
+		{
+			_state = S_ERROR;
+			throw std::runtime_error("400");
+		}
+		_state = S_HEX_END;
+		return;
+	}
+	if (_chunkSizeLine.length() > kMaxHexLength)
 	{
 		_state = S_ERROR;
-		throw std::runtime_error("413"); // Content Too Large
+		throw std::runtime_error("413"); // Entity too large
+	}
+	if (std::isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))
+		_chunkSizeLine += c;
+	else
+	{
+		_state = S_ERROR;
+		throw std::runtime_error("400");
+	}
+}
+
+void HttpRequest::parseHexEnd(char c)
+{
+	if (c == '\n')
+	{
+		// Extract and parse chunk size
+		_currentChunkSize = std::strtoul(_chunkSizeLine.c_str(), NULL, 16);
+		if (errno == ERANGE)
+		{
+			_state = S_ERROR;
+			throw std::runtime_error("400"); // Invalid hex
+		}
+		if (_currentChunkSize > _clientMaxBodySize - _body.size())
+		{
+			_state = S_ERROR;
+			throw std::runtime_error("413");
+		}
+		_chunkSizeLine.clear();
+		_currentChunkRead = 0;
+		_state = (_currentChunkSize == 0) ? S_BODY_LF : S_CHUNK;
+		return;
 	}
 
-	_body += c;
+	_state = S_ERROR;
+	throw std::runtime_error("400");
+}
 
-	// Check if body is complete
-	if (_body.size() == contentLength)
+void HttpRequest::parseChunk(char c)
+{
+	if (_currentChunkRead == _currentChunkSize && c == '\r')
+	{
+		_state = S_CHUNK_END;
+		return;
+	}
+
+	if (_currentChunkRead < _currentChunkSize)
+	{
+		_currentChunkRead++;
+		_body += c;
+		if (_body.size() > _clientMaxBodySize)
+		{
+			_state = S_ERROR;
+			throw std::runtime_error("413");
+		}
+		return;
+	}
+	_state = S_ERROR;
+	throw std::runtime_error("400");
+}
+
+void HttpRequest::parseChunkEnd(char c)
+{
+	if (c == '\n')
+	{
+		_state = S_HEX;
+		return;
+	}
+	_state = S_ERROR;
+	throw std::runtime_error("400");
+}
+
+void HttpRequest::parseBody(char c)
+{
+	if (c == '\r')
+	{
+		if (_body.size() == _expectedBodyLength)
+			_state = S_BODY_END;
+		return;
+	}
+	if (_body.size() >= _clientMaxBodySize)
+	{
+		_state = S_ERROR;
+		throw std::runtime_error("413");
+	}
+	_body += c;
+}
+
+void HttpRequest::parseBodyEnd(char c)
+{
+	if (c == '\n')
+	{
+		_state = S_BODY_LF;
+		return;
+	}
+	_state = S_ERROR;
+	throw std::runtime_error("400");
+}
+
+void HttpRequest::parseBodyLF(char c)
+{
+	if (c == '\r')
+	{
+		_state = S_MESSAGE_END;
+		return;
+	}
+	_state = S_ERROR;
+	throw std::runtime_error("400");
+}
+
+void HttpRequest::parseMessageEnd(char c)
+{
+	if (c == '\n')
 	{
 		_state = S_DONE;
+		return;
 	}
+	_state = S_ERROR;
+	throw std::runtime_error("400");
+}
+void HttpRequest::printRequestDBG() const
+{
+	if (!DEBUG)
+		return;
+	std::cout << "Method: " << _method << std::endl;
+	std::cout << "Target: " << _target << std::endl;
+	std::cout << "Query: " << _query << std::endl;
+	std::cout << "Version: " << _version << std::endl;
+	std::cout << "Headers:" << std::endl;
+	for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it)
+	{
+		std::cout << "  " << it->first << ": " << it->second << std::endl;
+	}
+	std::cout << "Body: " << _body << std::endl;
 }

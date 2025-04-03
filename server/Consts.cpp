@@ -9,7 +9,7 @@ const std::string kDefaultServerName = "";
 const std::string kDefaultRoot = "/var/www/html";
 const int kDefaultClientTimeout = 75;
 const int kDefaultClientHeaderBufferSize = 1024; // 1k
-const int kDefaultClientMaxBodySize = 1048576;	 // 1m
+const size_t kDefaultClientMaxBodySize = 1048576;	 // 1m
 const bool kDefaultAutoindex = false;
 
 static std::pair<const std::string, bool> methodPairsArr[] = {
@@ -92,3 +92,5 @@ static const std::pair<const std::string, std::string> statusCodesArr[] = {
 const std::map<std::string, std::string> kStatusCodes(
 	statusCodesArr,
 	statusCodesArr + sizeof(statusCodesArr) / sizeof(statusCodesArr[0]));
+
+const size_t kMaxHexLength = 8; // maximum valid chunk size in hex would be "FFFFFFFF" (4GB in hex)

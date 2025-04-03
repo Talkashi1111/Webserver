@@ -8,11 +8,12 @@
 
 class Server;
 class Location;
+class WebServer;
 
 class Connection
 {
 public:
-	Connection(int fd, const std::string &port, const std::string &host, int clientHeaderBufferSize);
+	Connection(int fd, const std::string &port, const std::string &host, int clientHeaderBufferSize, WebServer *ptr);
 	Connection(const Connection &connection);
 	Connection &operator=(const Connection &connection);
 	~Connection();
@@ -42,11 +43,12 @@ public:
 
 	bool isKeepAlive() const;
 
-	RequestState handleClientData(const std::string &raw);
+	RequestState handleClientRecv(const std::string &raw);
 	void reset();
 
 private:
 	int _fd;
+	WebServer *_webserver;
 	std::string _port;
 	std::string _host;
 	time_t _lastActivityTime;
