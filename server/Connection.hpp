@@ -13,7 +13,7 @@ class WebServer;
 class Connection
 {
 public:
-	Connection(int fd, const std::string &port, const std::string &host, int clientHeaderBufferSize, WebServer *ptr);
+	Connection(int fd, const std::string &port, const std::string &host, WebServer *ptr);
 	Connection(const Connection &connection);
 	Connection &operator=(const Connection &connection);
 	~Connection();
@@ -58,4 +58,7 @@ private:
 	HttpResponse _response;
 	int _clientHeaderBufferSize;
 	bool _keepAlive;
+
+	void setServerAndLocation();
+	std::string getPath(const std::string &path) const;
 };

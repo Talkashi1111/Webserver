@@ -47,6 +47,8 @@ public:
 	size_t getClientMaxBodySize() const;
 	bool isClientMaxBodySizeSet() const;
 
+	const std::map<ServerKey, Server*>& getServers() const;
+
 private:
 	std::string _fileName;
 	int _epfd;

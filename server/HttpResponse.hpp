@@ -14,6 +14,9 @@ public:
 	const std::string &getResponse() const;
 	void eraseResponse(int nbytes);
 
+	void generateErrorResponse(const std::string &statusCode);
+	void setResponseFile(const std::string &statusCode, const std::string &filePath);
+
 private:
 	std::string _response;
 };

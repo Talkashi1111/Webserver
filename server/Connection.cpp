@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include "Connection.hpp"
@@ -9,12 +10,12 @@
 #include "HttpResponse.hpp"
 #include "WebServer.hpp"
 #include "Consts.hpp"
+#include "Globals.hpp"
 #include "StringUtils.hpp"
 
 Connection::Connection(int fd,
 					   const std::string &port,
 					   const std::string &host,
-					   int clientHeaderBufferSize,
 					   WebServer *ptr) : _fd(fd),
 					  					 _webserver(ptr),
 										 _port(port),
@@ -22,9 +23,9 @@ Connection::Connection(int fd,
 										 _lastActivityTime(time(0)),
 										 _serverConfig(NULL),
 										 _locationConfig(NULL),
-										 _request(clientHeaderBufferSize, ptr->getClientMaxBodySize()),
+										 _request(ptr->getClientHeaderBufferSize(), ptr->getClientMaxBodySize()),
 										 _response(),
-										 _clientHeaderBufferSize(clientHeaderBufferSize),
+										 _clientHeaderBufferSize(ptr->getClientHeaderBufferSize()),
 										 _keepAlive(true)
 
 {
@@ -156,36 +157,33 @@ RequestState Connection::handleClientRecv(const std::string &raw)
 
 		if (_request.getState() == S_DONE)
 		{
-			_request.printRequestDBG();
+			if (DEBUG)
+				_request.printRequestDBG();
 			// TODO: init Server and Location and generate response
+			setServerAndLocation();
+			if (_serverConfig == NULL)
+				throw std::runtime_error("404");
 		}
 		return _request.getState();
 	}
 	catch (const std::exception &e)
 	{
 		std::string statusCode = e.what();
-		std::string statusText = kStatusCodes.find(statusCode)->second;
-		std::string body =
-			"<html>\n"
-			"<head><title>" +
-			statusCode + " " + statusText + "</title></head>\n"
-											"<body>\n"
-											"<center><h1>" +
-			statusCode + " " + statusText + "</h1></center>\n"
-											"<hr><center>webserver/1.0</center>\n"
-											"</body>\n"
-											"</html>\n";
-		std::ostringstream oss;
-		oss << "HTTP/1.1 " << statusCode << " " << statusText << "\r\n";
-		oss << "Server: webserver/1.0\r\n";
-		oss << "Date: " << getCurrentTime() << "\r\n";
-		oss << "Content-Type: text/html\r\n";
-		oss << "Content-Length: " << body.length() << "\r\n";
-		oss << "Connection: close\r\n";
-		oss << "\r\n"
-			<< body;
-		_response.setResponse(oss.str());
 		_keepAlive = false;
+		// TODO: handle error page replacement if configured
+		setServerAndLocation();
+		if (_serverConfig != NULL)
+		{
+			std::map<int, std::string>::const_iterator it = _serverConfig->getErrorPages().find(atoi(e.what()));
+			if (it != _serverConfig->getErrorPages().end())
+			{
+				std::string errorPage = it->second;
+				std::string errorPagePath = getPath(errorPage);
+				_response.setResponseFile(statusCode, errorPagePath);
+				return S_ERROR;
+			}
+		}
+		_response.generateErrorResponse(statusCode);
 		return S_ERROR;
 	}
 }
@@ -196,4 +194,54 @@ void Connection::reset()
 	_response = HttpResponse();
 	_serverConfig = NULL;
 	_locationConfig = NULL;
+}
+
+void Connection::setServerAndLocation()
+{
+	_serverConfig = NULL;
+	_locationConfig = NULL;
+	const std::map<ServerKey, Server *> &servers = _webserver->getServers();
+	ServerKey key(_host, _port, _request.getHostName());
+	std::map<ServerKey, Server *>::const_iterator it = servers.find(key);
+	if (it != servers.end())
+	{
+		_serverConfig = it->second;
+	}
+	else // try default server
+	{
+		key.server_name = kDefaultServerName;
+		it = servers.find(key);
+		if (it != servers.end())
+		{
+			_serverConfig = it->second;
+		}
+		else
+		{
+			return;
+		}
+	}
+	_locationConfig = _serverConfig->getLocationForURI(_request.getTarget());
+}
+
+std::string Connection::getPath(const std::string &path) const
+{
+	if (_serverConfig == NULL)
+		return path;
+	std::string root = _serverConfig->getRoot();
+	// TODO: verify if we need to add a trailing slash here
+	if (!root.empty() && root[root.length() - 1] == '/')
+	{
+		if (path[0] == '/')
+			root += path.substr(1);
+		else
+			root += path;
+	}
+	else
+	{
+		if (path[0] == '/')
+			root += path;
+		else
+			root += "/" + path;
+	}
+	return root;
 }

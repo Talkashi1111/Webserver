@@ -193,6 +193,11 @@ bool WebServer::isClientMaxBodySizeSet() const
 	return _clientMaxBodySizeSet;
 }
 
+const std::map<ServerKey, Server *> &WebServer::getServers() const
+{
+	return _servers;
+}
+
 std::string WebServer::readUntilDelimiter(std::istream &file, const std::string &delimiters)
 {
 	std::string result;
@@ -1121,7 +1126,7 @@ void WebServer::handleNewConnection(int listener)
 	std::cout << ss.str() << std::endl;
 
 	// Add the new connection to the map of connections
-	_connections[newfd] = new Connection(newfd, _listeners[listener].first, _listeners[listener].second, _clientHeaderBufferSize, this);
+	_connections[newfd] = new Connection(newfd, _listeners[listener].first, _listeners[listener].second, this);
 }
 
 void WebServer::handleClientRecv(int fd)

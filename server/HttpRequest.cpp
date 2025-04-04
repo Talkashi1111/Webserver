@@ -90,6 +90,9 @@ void HttpRequest::parseRequest(const std::string &raw)
 		case S_START:
 			parseStart(c);
 			break;
+		case S_RESTART:
+			parseRestart(c);
+			break;
 		case S_METHOD:
 			parseMethod(c);
 			_headerLength++;
@@ -687,4 +690,18 @@ void HttpRequest::printRequestDBG() const
 		std::cout << "  " << it->first << ": " << it->second << std::endl;
 	}
 	std::cout << "Body: " << _body << std::endl;
+}
+
+const std::string &HttpRequest::getHostName() const
+{
+	std::map<std::string, std::string>::const_iterator it = _headers.find("host");
+	if (it != _headers.end())
+		return it->second;
+	else
+		return kDefaultServerName;
+}
+
+const std::string &HttpRequest::getTarget() const
+{
+	return _target;
 }

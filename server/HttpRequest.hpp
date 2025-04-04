@@ -15,20 +15,10 @@ public:
 	HttpRequest &operator=(const HttpRequest &src);
 	~HttpRequest();
 
-	// // Setters
-	// void setMethod(const std::string &method);
-	// void setTarget(const std::string &target);
-	// void setVersion(const std::string &version); // only supported 1.1 if not return 505 HTTP Version Not Supported
-	// void setHeader(const std::string &key, const std::string &value);
-	// void setBody(const std::string &body);
-
 	// // Getters
-	// std::string getMethod() const;
-	// std::string getTarget() const;
-	// std::string getVersion() const;
-	// std::string getHeader(const std::string &key) const;
-	// std::string getBody() const;
 	RequestState getState() const;
+	const std::string &getHostName() const;
+	const std::string &getTarget() const;
 
 	void parseRequest(const std::string &raw);
 	void printRequestDBG() const;
