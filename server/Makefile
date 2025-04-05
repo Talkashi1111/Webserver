@@ -8,6 +8,7 @@ SERVER_FILES := Main.cpp \
 				LocationTrie.cpp \
 				Location.cpp \
 				StringUtils.cpp \
+				FileUtils.cpp \
 				Connection.cpp \
 				HttpRequest.cpp \
 				HttpResponse.cpp

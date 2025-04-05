@@ -1,7 +1,7 @@
 #include <ctime>
 #include <sstream>
 #include <iostream>
-#include <cstdlib>// for atoi
+#include <cstdlib> // for atoi
 #include <arpa/inet.h>
 #include "StringUtils.hpp"
 
@@ -14,15 +14,54 @@ std::string trim(const std::string &s)
 	return s.substr(start, end - start + 1);
 }
 
+/**
+ * Splits a string into words by whitespace while preserving quoted text as single words.
+ *
+ * @param text The input string to split
+ * @return Vector of strings containing the split words
+ *
+ * Notes:
+ * - Preserves quoted strings as single words including the quotes
+ * - Ignores whitespace inside quoted strings
+ * - Treats both spaces and tabs as word separators
+ * - Empty quoted strings are preserved
+ * - Multiple consecutive whitespaces are treated as one separator
+ */
 std::vector<std::string> splitByWhiteSpaces(const std::string &text)
 {
 	std::vector<std::string> words;
 	std::string word;
-	std::istringstream iss(text);
-	while (iss >> word)
+	bool inQuotes = false;
+
+	for (size_t i = 0; i < text.length(); ++i)
+	{
+		char c = text[i];
+
+		if (c == '"')
+		{
+			inQuotes = !inQuotes;
+			word += c;
+		}
+		else if ((c == ' ' || c == '\t') && !inQuotes)
+		{
+			if (!word.empty())
+			{
+				words.push_back(word);
+				word.clear();
+			}
+		}
+		else
+		{
+			word += c;
+		}
+	}
+
+	// Add last word if exists
+	if (!word.empty())
 	{
 		words.push_back(word);
 	}
+
 	return words;
 }
 
@@ -149,4 +188,18 @@ bool validHttpRequestChar(char c)
 		(c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
 		return true;
 	return false;
+}
+
+std::string trimFromEnd(const std::string &str)
+{
+	size_t end = str.length();
+	while (end > 0 && (str[end - 1] == ' ' || str[end - 1] == '\t'))
+	{
+		--end;
+	}
+	if (end == str.length())
+		return str;
+	if (end == 0)
+		return "";
+	return str.substr(0, end);
 }

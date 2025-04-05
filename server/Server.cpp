@@ -11,7 +11,7 @@ Server::Server() : _listens(),
 				   _allowedMethods(kDefaultAllowedMethods),
 				   _autoindex(kDefaultAutoindex),
 				   _cgiBin(),
-				   _returnDirective(""),
+				   _returnDirective(),
 				   _locationTrie(),
 				   // Initialize all "isSet" flags to false
 				   _listensSet(false),
@@ -125,6 +125,7 @@ bool Server::isServerNamesSet() const
 void Server::setRoot(const std::string &root)
 {
 	_root = root;
+	_rootSet = true;
 }
 
 const std::string &Server::getRoot() const
@@ -217,13 +218,17 @@ const std::map<std::string, std::string> &Server::getCgiBin() const
 	return _cgiBin;
 }
 
-void Server::setReturnDirective(const std::string &ret)
+void Server::setReturnDirective(const std::string &statusCode, const std::string &ret)
 {
-	_returnDirective = ret;
-	_returnDirectiveSet = true;
+	if (!_returnDirectiveSet)
+	{
+		_returnDirective.first = statusCode;
+		_returnDirective.second = ret;
+		_returnDirectiveSet = true;
+	}
 }
 
-const std::string &Server::getReturnDirective() const
+const std::pair<std::string, std::string> &Server::getReturnDirective() const
 {
 	return _returnDirective;
 }

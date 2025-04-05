@@ -34,8 +34,8 @@ public:
 	bool getAutoindex() const;
 	bool isAutoindexSet() const;
 
-	void setReturnDirective(const std::string &ret);
-	const std::string &getReturnDirective() const;
+	void setReturnDirective(const std::string &statusCode, const std::string &ret);
+	const std::pair<std::string, std::string> &getReturnDirective() const;
 	bool isReturnDirectiveSet() const;
 
 	void setUploadDirectory(const std::string &uploadDir);
@@ -43,13 +43,13 @@ public:
 	bool isUploadDirectorySet() const;
 
 private:
-	std::string _path;							 // The location's URI pattern (e.g., "/upload")
-	std::map<std::string, bool> _allowedMethods; // Optional override for allowed methods
-	std::string _root;							 // Optional override for document root in this location
-	std::set<std::string> _index;				 // Optional override for index files
-	bool _autoindex;							 // Override for autoindex (on/off)
-	std::string _returnDirective;				 // Optional return directive (e.g., "302 http://example.com/special")
-	std::string _uploadDirectory;				 // If this location handles uploads, the directory where files are saved
+	std::string _path;									  // The location's URI pattern (e.g., "/upload")
+	std::map<std::string, bool> _allowedMethods;		  // Optional override for allowed methods
+	std::string _root;									  // Optional override for document root in this location
+	std::set<std::string> _index;						  // Optional override for index files
+	bool _autoindex;									  // Override for autoindex (on/off)
+	std::pair<std::string, std::string> _returnDirective; // Optional return directive (e.g., <"301": "http://example.com/default">)
+	std::string _uploadDirectory;						  // If this location handles uploads, the directory where files are saved
 
 	// Flags to indicate whether each optional field was explicitly set.
 	bool _allowedMethodsSet;

@@ -19,6 +19,9 @@ public:
 	RequestState getState() const;
 	const std::string &getHostName() const;
 	const std::string &getTarget() const;
+	const std::string &getVersion() const;
+	bool isKeepAlive() const;
+	const std::map<std::string, std::string> &getHeaders() const;
 
 	void parseRequest(const std::string &raw);
 	void printRequestDBG() const;
@@ -37,6 +40,7 @@ private:
 	std::string _currentHeaderName;
 	std::string _currentHeaderValue;
 	size_t _expectedBodyLength;
+	bool _isChunked; // true if transfer-encoding is chunked
 
 	// Chunked encoding variables
 	size_t _currentChunkSize;	 // Size of current chunk being processed

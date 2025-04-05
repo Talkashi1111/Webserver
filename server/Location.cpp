@@ -6,7 +6,7 @@ Location::Location() : _path(""),
 					   _root(kDefaultRoot),
 					   _index(kDefaultIndex.begin(), kDefaultIndex.end()),
 					   _autoindex(kDefaultAutoindex),
-					   _returnDirective(""),
+					   _returnDirective(),
 					   _uploadDirectory(""),
 					   // Initialize all flags to false
 					   _allowedMethodsSet(false),
@@ -23,7 +23,7 @@ Location::Location(const std::string &path) : _path(path),
 											  _root(kDefaultRoot),
 											  _index(kDefaultIndex.begin(), kDefaultIndex.end()),
 											  _autoindex(kDefaultAutoindex),
-											  _returnDirective(""),
+											  _returnDirective(),
 											  _uploadDirectory(""),
 											  // Initialize all flags to false
 											  _allowedMethodsSet(false),
@@ -161,13 +161,17 @@ bool Location::isAutoindexSet() const
 	return _autoindexSet;
 }
 
-void Location::setReturnDirective(const std::string &ret)
+void Location::setReturnDirective(const std::string &statusCode, const std::string &ret)
 {
-	_returnDirective = ret;
-	_returnDirectiveSet = true;
+	if (!_returnDirectiveSet)
+	{
+		_returnDirective.first = statusCode;
+		_returnDirective.second = ret;
+		_returnDirectiveSet = true;
+	}
 }
 
-const std::string &Location::getReturnDirective() const
+const std::pair<std::string, std::string> &Location::getReturnDirective() const
 {
 	return _returnDirective;
 }

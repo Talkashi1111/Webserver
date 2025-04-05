@@ -26,11 +26,10 @@ const std::vector<std::string> kDefaultIndex(
 	indexArr + sizeof(indexArr) / sizeof(indexArr[0]));
 
 static const std::pair<const int, std::string> errorPagesArr[] = {
-	std::make_pair(404, "/404.html"),
-	std::make_pair(500, "/50x.html"),
-	std::make_pair(502, "/50x.html"),
-	std::make_pair(503, "/50x.html"),
-	std::make_pair(504, "/50x.html")};
+	std::make_pair(400, "/error/400.html"),
+	std::make_pair(404, "/error/404.html"),
+	std::make_pair(500, "/error/500.html"),
+	std::make_pair(505, "/error/505.html")};
 const std::map<int, std::string> kDefaultErrorPages(
 	errorPagesArr,
 	errorPagesArr + sizeof(errorPagesArr) / sizeof(errorPagesArr[0]));
@@ -78,6 +77,7 @@ static const std::pair<const std::string, std::string> statusCodesArr[] = {
 	std::make_pair("415", "Unsupported Media Type"),
 	std::make_pair("416", "Range Not Satisfiable"),
 	std::make_pair("417", "Expectation Failed"),
+	std::make_pair("418", "I'm a teapot"),
 	std::make_pair("421", "Misdirected Request"),
 	std::make_pair("422", "Unprocessable Content"),
 	std::make_pair("426", "Upgrade Required"),
@@ -94,3 +94,4 @@ const std::map<std::string, std::string> kStatusCodes(
 	statusCodesArr + sizeof(statusCodesArr) / sizeof(statusCodesArr[0]));
 
 const size_t kMaxHexLength = 8; // maximum valid chunk size in hex would be "FFFFFFFF" (4GB in hex)
+const bool kDefaultKeepAlive = true;

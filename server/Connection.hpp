@@ -42,6 +42,7 @@ public:
 	void eraseResponse(int nbytes);
 
 	bool isKeepAlive() const;
+	bool isCGI(std::string path, std::string &ext) const;
 
 	RequestState handleClientRecv(const std::string &raw);
 	void reset();
@@ -60,5 +61,7 @@ private:
 	bool _keepAlive;
 
 	void setServerAndLocation();
-	std::string getPath(const std::string &path) const;
+	std::string resolvePath(const std::string &root, const std::string &path) const;
+	void generateReturnDirectiveResponse(const std::string &status, const std::string &redirectPath);
+	void generateResponse();
 };

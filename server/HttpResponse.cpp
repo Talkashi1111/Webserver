@@ -43,7 +43,12 @@ void HttpResponse::eraseResponse(int nbytes)
 
 void HttpResponse::generateErrorResponse(const std::string &statusCode)
 {
-	std::string statusText = kStatusCodes.find(statusCode)->second;
+	std::string statusText = "Unknown Status Code";
+	std::map<std::string, std::string>::const_iterator it = kStatusCodes.find(statusCode);
+	if (it != kStatusCodes.end())
+	{
+		statusText = it->second;
+	}
 	std::string body =
 		"<html>\n"
 		"<head><title>" +
@@ -66,8 +71,9 @@ void HttpResponse::generateErrorResponse(const std::string &statusCode)
 	_response = oss.str();
 }
 
-void HttpResponse::setResponseFile(const std::string &statusCode, const std::string &filePath)
+void HttpResponse::generateErrorResponseFile(const std::string &statusCode, const std::string &filePath)
 {
+	// TODO: maybe we need to handle cgi here
 	std::ifstream file(filePath.c_str());
 	if (!file.is_open())
 	{
@@ -77,8 +83,9 @@ void HttpResponse::setResponseFile(const std::string &statusCode, const std::str
 	}
 	std::string body((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 	file.close();
+	std::string statusText = kStatusCodes.find(statusCode)->second;
 	std::ostringstream oss;
-	oss << "HTTP/1.1 " << statusCode << " OK\r\n";//TODO: Why ok?
+	oss << "HTTP/1.1 " << statusCode << " " << statusText << "\r\n";
 	oss << "Server: webserver/1.0\r\n";
 	oss << "Date: " << getCurrentTime() << "\r\n";
 	oss << "Content-Type: text/html\r\n";
@@ -88,3 +95,4 @@ void HttpResponse::setResponseFile(const std::string &statusCode, const std::str
 		<< body;
 	_response = oss.str();
 }
+

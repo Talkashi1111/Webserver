@@ -45,8 +45,8 @@ public:
 	void addCgiBin(const std::string &ext, const std::string &cgiBin);
 	const std::map<std::string, std::string> &getCgiBin() const;
 
-	void setReturnDirective(const std::string &ret);
-	const std::string &getReturnDirective() const;
+	void setReturnDirective(const std::string &statusCode, const std::string &ret);
+	const std::pair<std::string, std::string> &getReturnDirective() const;
 	bool isReturnDirectiveSet() const;
 
 	void addLocation(Location *loc);
@@ -57,16 +57,16 @@ public:
 	std::vector<Location *> getLocations() const;
 
 private:
-	std::set<std::string> _listens;				 // e.g., "0.0.0.0:80", "localhost:90", etc.
-	std::set<std::string> _serverNames;			 // e.g., "example.com", "www.example.com"
-	std::string _root;							 // Default: "/var/www/html"
-	std::set<std::string> _index;				 // Default: "index.html"
-	std::map<int, std::string> _errorPages;		 // e.g., 404->"/404.html", 500/502/503/504->"/50x.html"
-	std::map<std::string, bool> _allowedMethods; // Default: GET, POST, DELETE
-	bool _autoindex;							 // Default: off (false)
-	std::map<std::string, std::string> _cgiBin;	 // Maps file extensions to CGI executables (e.g., ".php" -> "/usr/bin/php-cgi")
-	std::string _returnDirective;				 // e.g., "301 http://example.com/default"
-	LocationTrie _locationTrie;					 // Trie for storing Location blocks
+	std::set<std::string> _listens;						  // e.g., "0.0.0.0:80", "localhost:90", etc.
+	std::set<std::string> _serverNames;					  // e.g., "example.com", "www.example.com"
+	std::string _root;									  // Default: "/var/www/html"
+	std::set<std::string> _index;						  // Default: "index.html"
+	std::map<int, std::string> _errorPages;				  // e.g., 404->"/404.html", 500/502/503/504->"/50x.html"
+	std::map<std::string, bool> _allowedMethods;		  // Default: GET, POST, DELETE
+	bool _autoindex;									  // Default: off (false)
+	std::map<std::string, std::string> _cgiBin;			  // Maps file extensions to CGI executables (e.g., ".php" -> "/usr/bin/php-cgi")
+	std::pair<std::string, std::string> _returnDirective; // e.g., <"301": "http://example.com/default">
+	LocationTrie _locationTrie;							  // Trie for storing Location blocks
 
 	// Flags to indicate whether each optional field was explicitly set.
 	bool _listensSet;

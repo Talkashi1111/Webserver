@@ -47,7 +47,7 @@ WebServer::WebServer(const std::string &filename) : _fileName(filename),
 	this->parseConfig();
 }
 
-// TODO: fix the copy logic in Server, LocationTrie, LocationTrieNode
+// TODO: verify the copy logic in Server, LocationTrie, LocationTrieNode
 WebServer::WebServer(const WebServer &other) : _fileName(other._fileName),
 											   _epfd(-1),
 											   _listeners(other._listeners),
@@ -248,6 +248,9 @@ void WebServer::handleOpenBracket(const std::string &content_block, Server *&cur
 			throw std::invalid_argument("Location not inside server block");
 		if (!isValidAbsolutePath(words[1]))
 			throw std::invalid_argument("Invalid path in location block: " + words[1]);
+		Location *tmpLocation = curr_server->getLocationForURI(words[1]);
+		if (tmpLocation != NULL && tmpLocation->getPath() == words[1])
+			throw std::invalid_argument("Duplicate location: " + words[1]);
 		curr_location = new Location(words[1]);
 		curr_server->addLocation(curr_location);
 		state = LOCATION;
@@ -500,10 +503,8 @@ void WebServer::validateReturnDirective(const std::vector<std::string> &words)
 	// Validate status code
 	if (!isNumber(words[1]))
 		throw std::invalid_argument("Invalid return directive: status code must be numeric");
-
-	int code = atoi(words[1].c_str());
-	if (code < 100 || code > 599)
-		throw std::invalid_argument("Invalid return directive: status code must be between 100 and 599");
+	if (kStatusCodes.find(words[1]) == kStatusCodes.end())
+		throw std::invalid_argument("Invalid return directive: status code not in known range");
 
 	// Check for either quoted text or URL
 	const std::string &target = words[2];
@@ -553,15 +554,6 @@ void WebServer::handleServerDirective(const std::vector<std::string> &words, Ser
 		for (size_t i = 1; i < words.size(); ++i)
 			curr_server->addIndex(words[i]);
 	}
-	/* else if (words[0] == "client_max_body_size")
-	{
-		if (words.size() != 2)
-			throw std::invalid_argument("Invalid client_max_body_size directive");
-		if (curr_server->isClientMaxBodySizeSet())
-			throw std::invalid_argument("Duplicate client_max_body_size directive");
-		validateSizeFormat(words[1]);
-		curr_server->setClientMaxBodySize(words[1]);
-	} */
 	else if (words[0] == "error_page")
 	{
 		if (words.size() < 3)
@@ -611,7 +603,7 @@ void WebServer::handleServerDirective(const std::vector<std::string> &words, Ser
 	else if (words[0] == "return")
 	{
 		validateReturnDirective(words);
-		curr_server->setReturnDirective(words[1]);
+		curr_server->setReturnDirective(words[1], words[2]);
 	}
 	else
 	{
@@ -651,7 +643,7 @@ void WebServer::handleLocationDirective(const std::vector<std::string> &words, L
 	else if (words[0] == "return")
 	{
 		validateReturnDirective(words);
-		curr_location->setReturnDirective(words[1]);
+		curr_location->setReturnDirective(words[1], words[2]);
 	}
 	else if (words[0] == "upload_directory")
 	{
@@ -1133,7 +1125,7 @@ void WebServer::handleClientRecv(int fd)
 {
 	char buf[kMaxBuff]; // Buffer for client data
 
-	int nbytes = recv(fd, buf, sizeof buf, 0);
+	int nbytes = recv(fd, buf, kMaxBuff - 1, 0);
 	if (nbytes < 0)
 	{
 		// Error receiving data

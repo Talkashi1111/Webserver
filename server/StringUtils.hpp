@@ -12,3 +12,4 @@ void printAddrinfo(const char *host, const char *port, struct addrinfo *ai);
 int convertSizeToBytes(const std::string &size);
 std::string getCurrentTime();
 bool validHttpRequestChar(char c);
+std::string trimFromEnd(const std::string &str);

@@ -56,3 +56,4 @@ extern const std::map<int, std::string> kDefaultErrorPages;
 extern const bool kDefaultAutoindex;
 extern const std::map<std::string, std::string> kStatusCodes;
 extern const size_t kMaxHexLength;
+extern const bool kDefaultKeepAlive;

@@ -1,7 +1,7 @@
 #include <cstdlib> // for atoi
 #include <iostream>
 #include <stdexcept>
-#include <sstream>// for stringstream
+#include <sstream> // for stringstream
 #include <climits> // for LONG_MAX
 #include <cerrno>
 #include "Globals.hpp"
@@ -22,6 +22,7 @@ HttpRequest::HttpRequest(int clientHeaderBufferSize, int clientMaxBodySize) : _s
 																			  _currentHeaderName(""),
 																			  _currentHeaderValue(""),
 																			  _expectedBodyLength(0),
+																			  _isChunked(false),
 																			  _currentChunkSize(0),
 																			  _currentChunkRead(0),
 																			  _chunkSizeLine("")
@@ -41,6 +42,7 @@ HttpRequest::HttpRequest(const HttpRequest &src) : _state(src._state),
 												   _currentHeaderName(src._currentHeaderName),
 												   _currentHeaderValue(src._currentHeaderValue),
 												   _expectedBodyLength(src._expectedBodyLength),
+												   _isChunked(src._isChunked),
 												   _currentChunkSize(src._currentChunkSize),
 												   _currentChunkRead(src._currentChunkRead),
 												   _chunkSizeLine(src._chunkSizeLine)
@@ -64,6 +66,7 @@ HttpRequest &HttpRequest::operator=(const HttpRequest &src)
 		_currentHeaderName = src._currentHeaderName;
 		_currentHeaderValue = src._currentHeaderValue;
 		_expectedBodyLength = src._expectedBodyLength;
+		_isChunked = src._isChunked;
 		_currentChunkSize = src._currentChunkSize;
 		_currentChunkRead = src._currentChunkRead;
 		_chunkSizeLine = src._chunkSizeLine;
@@ -150,7 +153,7 @@ void HttpRequest::parseRequest(const std::string &raw)
 			_headerLength++;
 			break;
 		case S_HEX:
-			parseHex(c); // TODO: enforce protection against buffer overflow
+			parseHex(c);
 			break;
 		case S_HEX_END:
 			parseHexEnd(c);
@@ -343,7 +346,7 @@ void HttpRequest::parseVersion(char c)
 				_version[7] >= '0' && _version[7] <= '9')
 			{
 				throw std::runtime_error("505"); // HTTP Version Not Supported
-				//in real nginx, it will accept anything that start at 1.0 but bad request from 0.0 and accept anything after 1.0. from 2.0 method not supported
+												 // in real nginx, it will accept anything that start at 1.0 but bad request from 0.0 and accept anything after 1.0. from 2.0 method not supported
 			}
 			throw std::runtime_error("400"); // Bad Request
 		}
@@ -392,7 +395,6 @@ void HttpRequest::parseHeaderName(char c)
 			throw std::runtime_error("400");
 		}
 
-
 		_state = S_HEADER_COLON;
 		return;
 	}
@@ -421,7 +423,7 @@ void HttpRequest::parseHeaderColon(char c)
 	}
 
 	_state = S_HEADER_VALUE;
-	_currentHeaderValue += c; // TODO: a-z , 0-9 and tchar
+	_currentHeaderValue += c;
 }
 
 void HttpRequest::parseHeaderValue(char c)
@@ -435,9 +437,19 @@ void HttpRequest::parseHeaderValue(char c)
 			throw std::runtime_error("400");
 		} // TODO: handle additional duplicates
 
+		_currentHeaderValue = trimFromEnd(_currentHeaderValue);
 		if (_currentHeaderName == "transfer-encoding" && _headers.find("transfer-encoding") != _headers.end())
 		{
+			if (_currentHeaderValue == "chunked")
+				_isChunked = true;
 			_headers["transfer-encoding"] += ", " + _currentHeaderValue;
+		}
+		else if (_currentHeaderName == "connection")
+		{
+			if (_currentHeaderValue == "keep-alive")
+				_headers["connection"] = "keep-alive";
+			else if (_currentHeaderValue == "close")
+				_headers["connection"] = "close";
 		}
 		else
 		{
@@ -454,7 +466,7 @@ void HttpRequest::parseHeaderValue(char c)
 		throw std::runtime_error("400");
 	}
 
-	_currentHeaderValue += c; // TODO: handle whitespace trimming (trailing) and how we handle whitespaces between values
+	_currentHeaderValue += c;
 }
 
 void HttpRequest::parseHeaderCR(char c)
@@ -489,10 +501,19 @@ void HttpRequest::parseHeaderLF(char c)
 	}
 	_state = S_HEADER_NAME;
 	if (validHttpRequestChar(c))
-		_currentHeaderName += c; // TODO: check TCHAR
+	{
+		if (c >= 'A' && c <= 'Z')
+			_currentHeaderName += c + 32; // convert to lower case
+		else
+			_currentHeaderName += c;
+	}
+	else
+	{
+		_state = S_ERROR;
+		throw std::runtime_error("400");
+	}
 	return;
 }
-
 
 void HttpRequest::parseHeaderEnd(char c)
 {
@@ -500,7 +521,7 @@ void HttpRequest::parseHeaderEnd(char c)
 	{
 		// Check if there is a body
 		if (_headers.find("transfer-encoding") != _headers.end() &&
-			_headers["transfer-encoding"] == "chunked")
+			_headers["transfer-encoding"].find("chunked") != std::string::npos)
 		{
 			_state = S_HEX;
 			return;
@@ -704,4 +725,27 @@ const std::string &HttpRequest::getHostName() const
 const std::string &HttpRequest::getTarget() const
 {
 	return _target;
+}
+
+bool HttpRequest::isKeepAlive() const
+{
+	std::map<std::string, std::string>::const_iterator it = _headers.find("connection");
+	if (it != _headers.end())
+	{
+		if (it->second == "close")
+			return false;
+		else if (it->second == "keep-alive")
+			return true;
+	}
+	return kDefaultKeepAlive;
+}
+
+const std::string &HttpRequest::getVersion() const
+{
+	return _version;
+}
+
+const std::map<std::string, std::string> &HttpRequest::getHeaders() const
+{
+	return _headers;
 }
