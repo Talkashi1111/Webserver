@@ -1,7 +1,7 @@
 body {
     font-family: Arial, sans-serif;
     text-align: center;
-    background-color: #e6c2c2;
+    background-color: #eae7e7;
     margin: 0;
     padding: 0;
 }
@@ -15,9 +15,23 @@ h1 {
     font-size: 5rem;
     margin-bottom: 10px;
 }
+
+h2 {
+	font-size: 3rem;
+	margin-top: 0;
+	margin-bottom: 20px;
+}
+
+h3 {
+	font-size: 2rem;
+	margin-top: 0;
+	margin-bottom: 20px;
+}
+
 p {
     font-size: 1.5rem;
     margin-top: 0;
+	margin-bottom: 20px;
 }
 a {
     color: #007bff;
