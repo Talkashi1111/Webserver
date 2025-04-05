@@ -2,46 +2,107 @@
 <html lang="en">
 
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<style>
-		body {
-			font-family: Arial, sans-serif;
-			text-align: center;
-			background-color: #e6c2c2;
-			margin: 0;
-			padding: 0;
-		}
-
-		.container {
-			position: absolute;
-			top: 50%;
-			left: 50%;
-			transform: translate(-50%, -50%);
-		}
-
-		h1 {
-			font-size: 5rem;
-			margin-bottom: 10px;
-		}
-
-		p {
-			font-size: 1.5rem;
-			margin-top: 0;
-		}
-
-		a {
-			color: #007bff;
-			text-decoration: none;
-		}
-	</style>
+	<link rel="stylesheet" href="style/style.css">
+	<link rel="stylesheet" href="style/topnav.css">
+	<link rel="stylesheet" href="style/footer.css">
+	<link rel="icon" href="images/default-icon.ico" type="image/x-icon">
+	<title>Webserv</title>
 </head>
 
 <body>
-	<div class="container">
-		<h1>Welcome to My Website</h1>
-		<p>This is the home page of my simple HTTP server.</p>
+	<header>
+		<h1>Webserv: a 42 project</h1>
+		<p1>Welcome to the Webserv project, a web server implementation.</p1>
+
+		<div class="topnav">
+			<a href="javascript:void(0)" class="tablinks" id="defaultOpen" onclick="openTab('home', event)">Home</a>
+			<a class="tablinks" onclick="openTab('cgi', event)">CGI</a>
+			<a class="tablinks" onclick="openTab('error', event)">Error Pages</a>
+			<a class="tablinks" onclick="openTab('about', event)">About</a>
+			<a class="tablinks" onclick="openTab('contact', event)">Contact</a>
+		</div>
+	</header>
+
+	<div id="home" class="tabcontent">
+			<h2>Welcome!</h2>
+			<p1>This is the home page of my awesome site.</p1>
 	</div>
+
+	<div id="cgi" class="tabcontent">
+			<h2>CGI</h2>
+			<p1>We offer a variety of services to our clients.</p1>
+	</div>
+
+	<div id="error" class="tabcontent">
+		<h2>Error Pages</h2>
+		<p1>Here are some error pages:</p1>
+
+		<h3><a href="error/400.html">400 Bad Request</a></h3>
+		<p2>The server cannot or will not process the request due to an apparent client error.</p2>
+
+
+		<h3><a href="error/403.html">403 Forbidden</a></h3>
+		<p2>You do not have permission to access this resource.</p2>
+
+
+		<h3><a href="error/404.html">404 Not Found</a></h3>
+		<p2>The requested resource was not found on this server.</p2>
+
+
+		<h3><a href="error/405.html">405 Method Not Allowed</a></h3>
+		<p2>The request method is not supported for the requested resource.</p2>
+
+
+		<h3><a href="error/418.html">418 I'm A Teapot</a></h3>
+		<p2>The server refuses to brew coffee because it is a teapot.</p2>
+
+
+		<h3><a href="error/500">500 Internal Server Error</a></h3>
+		<p2>The server encountered an internal error and was unable to complete your request.</p2>
+
+
+		<h3><a href="error/505.html">505 HTTP Version Not Supported</a></h3>
+		<p2>The server does not support the HTTP protocol version used in the request.</p2>
+
+	</div>
+
+	<div id="about" class="tabcontent">
+			<h2>About Us</h2>
+			<p1>This page provides information about our website and services.</p1>
+	</div>
+
+	<div id="contact" class="tabcontent">
+			<h2>Contact Us</h2>
+			<p1>Feel free to reach out to us for any inquiries.</p1>
+	</div>
+
+	<div class="footer">
+			&copy; 2025 Eric Reymond & Tal Kashi
+	</div>
+
+	<script>
+	// openTab function to display the selected tab content
+	function openTab(tabName, evt) {
+		var i, tabcontent, tablinks;
+		tabcontent = document.getElementsByClassName("tabcontent");
+		tablinks = document.getElementsByClassName("tablinks");
+
+		for (i = 0; i < tabcontent.length; i++) {
+			tabcontent[i].style.display = "none";
+		}
+
+		for (i = 0; i < tablinks.length; i++) {
+			tablinks[i].className = tablinks[i].className.replace(" active", "");
+		}
+
+		document.getElementById(tabName).style.display = "block";
+		evt.currentTarget.className += " active";
+	}
+
+// Get the element with id="defaultOpen" and click on it
+	document.getElementById("defaultOpen").click();
+	</script>
+
 </body>
 
 </html>
