@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <dirent.h>//for readdir
 #include "Connection.hpp"
 #include "Server.hpp"
 #include "Location.hpp"
@@ -150,6 +151,14 @@ bool Connection::isKeepAlive() const
 	return _keepAlive;
 }
 
+bool Connection::isAllowdMethod(const std::string &method, const std::map<std::string, bool> methods) const
+{
+	std::map<std::string, bool>::const_iterator it = methods.find(method);
+	if (it != methods.end())
+		return it->second;
+	return false;
+}
+
 RequestState Connection::handleClientRecv(const std::string &raw)
 {
 	try
@@ -174,19 +183,14 @@ RequestState Connection::handleClientRecv(const std::string &raw)
 			}
 			else if (_locationConfig == NULL)
 				throw std::runtime_error("404");
+			if (!isAllowdMethod(_request.getMethod(), _locationConfig->getAllowedMethods()))
+				throw std::runtime_error("405");
 			else if (_locationConfig->isReturnDirectiveSet()) // location config is not NULL, meaning we have a location block
 			{
 				std::pair<std::string, std::string> returnDirective = _locationConfig->getReturnDirective();
 				generateReturnDirectiveResponse(returnDirective.first, returnDirective.second);
 				return _request.getState();
 			}
-			// else if (_locationConfig->isAllowedMethodSet())
-			// {
-			// 	if (_locationConfig->isAllowedMethod(_request.getMethod()))
-			// 		generateResponse();
-			// 	else
-			// 		throw std::runtime_error("405");
-			// }
 			else
 				generateResponse();
 		}
@@ -360,8 +364,6 @@ void Connection::generateReturnDirectiveResponse(const std::string &status, cons
 // TODO: finish
 bool Connection::isCGI(std::string path, std::string &ext) const
 {
-	/* if (_locationConfig == NULL)
-		return false; */
 	std::string::reverse_iterator it = path.rbegin();
 	for (; it != path.rend(); ++it)
 	{
@@ -382,12 +384,42 @@ bool Connection::isCGI(std::string path, std::string &ext) const
 	return false;
 }
 
+std::string Connection::generateAutoIndex(const std::string &path) const
+{
+	std::ostringstream oss;
+	oss << "<html>\n"
+		<< "<head><title>Index of " << path << "</title></head>\n"
+		<< "<body>\n"
+		<< "<h1>Index of " << path << "</h1>\n"
+		<< "<hr>\n"
+		<< "<ul>\n";
+
+	DIR *dir = opendir(path.c_str());
+	if (dir == NULL)
+		return "";
+
+	struct dirent *entry;
+	while ((entry = readdir(dir)) != NULL)
+	{
+		if (entry->d_name[0] == '.')
+			continue;
+		std::string name = entry->d_name;
+		std::string fullPath = path + "/" + name;
+		if (isDirectory(fullPath))
+			name += "/";
+		oss << "<li><a href=\"" << name << "\">" << name << "</a></li>\n";
+	}
+	closedir(dir);
+
+	oss << "</ul>\n"
+		<< "<hr>\n"
+		<< "</body>\n"
+		<< "</html>\n";
+	return oss.str();
+}
+
 void Connection::generateResponse()
 {
-	// TODO: delete later
-	// obligatory fields : version, status code, status text
-	//  Server: Date: Content-Type: Content-Length: Connection:
-
 	std::string fullPath(resolvePath(_locationConfig->getRoot(), _request.getTarget()));
 	if (fullPath[fullPath.length() - 1] == '/')
 	{
@@ -426,12 +458,30 @@ void Connection::generateResponse()
 	std::string body;
 	if (isDirectory(fullPath))
 	{
-		std::string uri = _request.getTarget();
-		if (uri[uri.length() - 1] != '/')
-			uri += '/';
-		std::string redir = "http://" + _request.getHostName() + uri;
-		generateReturnDirectiveResponse("301", redir);
-		return;
+		if (_locationConfig->getAutoindex())
+		{
+			std::string autoindex = generateAutoIndex(fullPath);
+			std::ostringstream oss;
+			oss << "HTTP/1.1 200 OK\r\n";
+			oss << "Server: webserver/1.0\r\n";
+			oss << "Date: " << getCurrentTime() << "\r\n";
+			oss << "Content-Type: text/html\r\n";
+			oss << "Content-Length: " << autoindex.length() << "\r\n";
+			oss << "Connection: " << (_keepAlive ? "keep-alive" : "close") << "\r\n";
+			oss << "\r\n"
+				<< autoindex;
+			_response.setResponse(oss.str());
+			return;
+		}
+		else
+		{
+			std::string uri = _request.getTarget();
+			if (uri[uri.length() - 1] != '/')
+				uri += '/';
+			std::string redir = "http://" + _request.getHostName() + uri;
+			generateReturnDirectiveResponse("301", redir);
+			return;
+		}
 	}
 	else if (isFile(fullPath))
 	{

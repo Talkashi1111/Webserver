@@ -43,7 +43,8 @@ public:
 
 	bool isKeepAlive() const;
 	bool isCGI(std::string path, std::string &ext) const;
-
+	bool isAllowdMethod(const std::string &method, const std::map<std::string, bool> methods) const;
+	std::string generateAutoIndex(const std::string &path) const;
 	RequestState handleClientRecv(const std::string &raw);
 	void reset();
 

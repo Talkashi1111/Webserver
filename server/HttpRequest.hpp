@@ -20,6 +20,7 @@ public:
 	const std::string &getHostName() const;
 	const std::string &getTarget() const;
 	const std::string &getVersion() const;
+	const std::string &getMethod() const;
 	bool isKeepAlive() const;
 	const std::map<std::string, std::string> &getHeaders() const;
 

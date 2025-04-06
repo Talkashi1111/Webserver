@@ -745,6 +745,11 @@ const std::string &HttpRequest::getVersion() const
 	return _version;
 }
 
+const std::string &HttpRequest::getMethod() const
+{
+	return _method;
+}
+
 const std::map<std::string, std::string> &HttpRequest::getHeaders() const
 {
 	return _headers;
