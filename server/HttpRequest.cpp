@@ -750,7 +750,25 @@ const std::string &HttpRequest::getMethod() const
 	return _method;
 }
 
+const std::string &HttpRequest::getBody() const
+{
+	return _body;
+}
+
+const std::string &HttpRequest::getQuery() const
+{
+	return _query;
+}
+
 const std::map<std::string, std::string> &HttpRequest::getHeaders() const
 {
 	return _headers;
+}
+
+const std::string &HttpRequest::getHeaderValue(const std::string key) const
+{
+	std::map<std::string, std::string>::const_iterator it = _headers.find(key);
+	if (it != _headers.end())
+		return it->second;
+	throw std::runtime_error("Header not found");
 }

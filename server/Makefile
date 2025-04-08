@@ -11,7 +11,8 @@ SERVER_FILES := Main.cpp \
 				FileUtils.cpp \
 				Connection.cpp \
 				HttpRequest.cpp \
-				HttpResponse.cpp
+				HttpResponse.cpp \
+				CGI.cpp
 CLIENT_FILES := client.cpp
 
 CFLAGS := -Wall -Wextra -Werror -std=c++98

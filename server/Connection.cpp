@@ -4,7 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include <dirent.h>//for readdir
+#include <dirent.h> //for readdir
 #include "Connection.hpp"
 #include "Server.hpp"
 #include "Location.hpp"
@@ -15,6 +15,7 @@
 #include "Globals.hpp"
 #include "StringUtils.hpp"
 #include "FileUtils.hpp"
+#include "CGI.hpp"
 
 Connection::Connection(int fd,
 					   const std::string &port,
@@ -165,6 +166,7 @@ RequestState Connection::handleClientRecv(const std::string &raw)
 	{
 		_lastActivityTime = time(0);
 		_request.parseRequest(raw);
+		std::string ext = "";
 
 		if (_request.getState() == S_DONE)
 		{
@@ -434,26 +436,30 @@ void Connection::generateResponse()
 			}
 		}
 	}
-	// else
-	// {
-	// 	std::string ext = "";
-	// 	if (isCGI(fileName, ext))
-	// 	{
-	// 		std::string cgiBin = _serverConfig->getCgiBin().find(ext)->second;
-	// 		std::string cgiPath = cgiBin + " " + fileName;
-	// 		std::ostringstream oss;
-	// 		oss << "HTTP/1.1 200 OK\r\n";
-	// 		oss << "Server: webserver/1.0\r\n";
-	// 		oss << "Date: " << getCurrentTime() << "\r\n";
-	// 		oss << "Content-Type: text/html\r\n";
-	// 		oss << "Content-Length: " << cgiPath.length() << "\r\n";
-	// 		oss << "Connection: " << (_keepAlive ? "keep-alive" : "close") << "\r\n";
-	// 		oss << "\r\n"
-	// 			<< cgiPath;
-	// 		_response.setResponse(oss.str());
-	// 		return;
-	// 	}
-	// }
+	else
+	{
+		std::string ext = "cgi";
+		if (!ext.empty() && isCGI(fullPath, ext))
+		{
+			if (_serverConfig->getCgiBin().find(ext) != _serverConfig->getCgiBin().end())
+			{
+				std::string cgiPath = _serverConfig->getCgiBin().find(ext)->second;
+				CGI cgi(cgiPath);
+				std::string body = cgi.execute(fullPath, _request);
+				std::ostringstream oss;
+				oss << "HTTP/1.1 200 OK\r\n";
+				oss << "Server: webserver/1.0\r\n";
+				oss << "Date: " << getCurrentTime() << "\r\n";
+				setContentType(fullPath, oss);
+				oss << "Content-Length: " << body.length() << "\r\n";
+				oss << "Connection: " << (_keepAlive ? "keep-alive" : "close") << "\r\n";
+				oss << "\r\n"
+					<< body;
+				_response.setResponse(oss.str());
+				return;
+			}
+		}
+	}
 
 	std::string body;
 	if (isDirectory(fullPath))
@@ -465,7 +471,7 @@ void Connection::generateResponse()
 			oss << "HTTP/1.1 200 OK\r\n";
 			oss << "Server: webserver/1.0\r\n";
 			oss << "Date: " << getCurrentTime() << "\r\n";
-			oss << "Content-Type: text/html\r\n";
+			setContentType(fullPath, oss);
 			oss << "Content-Length: " << autoindex.length() << "\r\n";
 			oss << "Connection: " << (_keepAlive ? "keep-alive" : "close") << "\r\n";
 			oss << "\r\n"
@@ -495,7 +501,7 @@ void Connection::generateResponse()
 			oss << "HTTP/1.1 200 OK\r\n";
 			oss << "Server: webserver/1.0\r\n";
 			oss << "Date: " << getCurrentTime() << "\r\n";
-			oss << "Content-Type: text/html\r\n";
+			setContentType(fullPath, oss);
 			oss << "Content-Length: " << body.length() << "\r\n";
 			oss << "Connection: " << (_keepAlive ? "keep-alive" : "close") << "\r\n";
 			oss << "\r\n"
@@ -507,4 +513,30 @@ void Connection::generateResponse()
 	{
 		throw std::runtime_error("404");
 	}
+}
+
+void Connection::setContentType(const std::string &path, std::ostringstream &oss)
+{
+	if (path.find(".html") != std::string::npos)
+		oss << "Content-Type: text/html\r\n";
+	else if (path.find(".css") != std::string::npos)
+		oss << "Content-Type: text/css\r\n";
+	else if (path.find(".js") != std::string::npos)
+		oss << "Content-Type: application/javascript\r\n";
+	else if (path.find(".png") != std::string::npos)
+		oss << "Content-Type: image/png\r\n";
+	else if (path.find(".jpg") != std::string::npos)
+		oss << "Content-Type: image/jpeg\r\n";
+	else if (path.find(".gif") != std::string::npos)
+		oss << "Content-Type: image/gif\r\n";
+	else if (path.find(".ico") != std::string::npos)
+		oss << "Content-Type: image/x-icon\r\n";
+	else if (path.find(".txt") != std::string::npos)
+		oss << "Content-Type: text/plain\r\n";
+	else if (path.find(".pdf") != std::string::npos)
+		oss << "Content-Type: application/pdf\r\n";
+	else if (path.find(".zip") != std::string::npos)
+		oss << "Content-Type: application/zip\r\n";
+	else
+		oss << "Content-Type: application/octet-stream\r\n";
 }

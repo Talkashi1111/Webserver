@@ -21,8 +21,11 @@ public:
 	const std::string &getTarget() const;
 	const std::string &getVersion() const;
 	const std::string &getMethod() const;
-	bool isKeepAlive() const;
+	const std::string &getBody() const;
+	const std::string &getQuery() const;
 	const std::map<std::string, std::string> &getHeaders() const;
+	const std::string &getHeaderValue(const std::string key) const;
+	bool isKeepAlive() const;
 
 	void parseRequest(const std::string &raw);
 	void printRequestDBG() const;

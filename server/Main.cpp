@@ -37,6 +37,7 @@ int main(int argc, char *argv[])
 		WebServer ws(filename);
 		if (DEBUG)
 			ws.printSettings();
+
 		ws.run();
 	}
 	catch (const std::exception &e)

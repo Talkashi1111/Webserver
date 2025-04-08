@@ -48,6 +48,8 @@ public:
 	RequestState handleClientRecv(const std::string &raw);
 	void reset();
 
+	void setContentType(const std::string &path, std::ostringstream &oss);
+
 private:
 	int _fd;
 	WebServer *_webserver;
