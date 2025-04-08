@@ -444,7 +444,7 @@ void Connection::generateResponse()
 			if (_serverConfig->getCgiBin().find(ext) != _serverConfig->getCgiBin().end())
 			{
 				std::string cgiPath = _serverConfig->getCgiBin().find(ext)->second;
-				CGI cgi(cgiPath);
+				CGI cgi(cgiPath, _webserver);
 				std::string body = cgi.execute(fullPath, _request);
 				std::ostringstream oss;
 				oss << "HTTP/1.1 200 OK\r\n";

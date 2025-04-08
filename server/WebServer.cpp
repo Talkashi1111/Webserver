@@ -188,6 +188,11 @@ size_t WebServer::getClientMaxBodySize() const
 	return _clientMaxBodySize;
 }
 
+int WebServer::getEpollFD() const
+{
+    return _epfd;
+}
+
 bool WebServer::isClientMaxBodySizeSet() const
 {
 	return _clientMaxBodySizeSet;
@@ -197,6 +202,7 @@ const std::map<ServerKey, Server *> &WebServer::getServers() const
 {
 	return _servers;
 }
+
 
 std::string WebServer::readUntilDelimiter(std::istream &file, const std::string &delimiters)
 {

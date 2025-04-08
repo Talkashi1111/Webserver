@@ -8,23 +8,30 @@
 #include <stdexcept>
 #include <sys/wait.h>
 
-CGI::CGI(const std::string &cgiDirectory) : _cgiDirectory(cgiDirectory)
+CGI::CGI(const std::string &cgiDirectory) :_env(), _cgiDirectory(cgiDirectory), _webserver(webserver)
 {
 	if (cgiDirectory.empty())
 		throw std::runtime_error("CGI directory is empty");
 }
 
-CGI::CGI(const CGI &src)
+
+CGI::CGI(const CGI& src) : _env(src._env),
+						   _cgiDirectory(src._cgiDirectory),
+                           _webserver(src._webserver),
+
 {
-	*this = src;
+    // No need for additional logic in constructor body
+    // since all members are copied in initialization list
+    // and we don't have any resources requiring deep copy
 }
 
 CGI &CGI::operator=(const CGI &src)
 {
 	if (this != &src)
 	{
-		_cgiDirectory = src._cgiDirectory;
 		_env = src._env;
+		_cgiDirectory = src._cgiDirectory;
+		_webserver = src._webserver;
 	}
 	return *this;
 }
@@ -87,6 +94,7 @@ std::string CGI::execute(const std::string &scriptPath, const HttpRequest &reque
 		close(pipeStdIn[0]); // Close read end of stdin pipe
 		close(pipeStdIn[1]); // Close write end of stdin pipe
 
+
 		// Execute the CGI script
 		std::vector<char*> argv;
 		argv.push_back(const_cast<char*>(fullScriptPath.c_str()));
@@ -100,6 +108,19 @@ std::string CGI::execute(const std::string &scriptPath, const HttpRequest &reque
 	{
 		close(pipeStdOut[1]); // Close write end of stdout pipe
 		close(pipeStdIn[0]);  // Close read end of stdin pipe
+		 // Add pipeStdOut[0] to epoll monitoring
+   		struct epoll_event ev;
+		ev.events = EPOLLIN;
+		ev.data.fd = pipeStdOut[0];
+
+		int epfd = _webserver->getEpollFD();
+		 if (epoll_ctl(epfd, EPOLL_CTL_ADD, pipeStdOut[0], &ev) == -1)
+		{
+        	perror("epoll_ctl");
+        	close(pipeStdOut[0]);
+        	close(pipeStdIn[1]);
+        	throw std::runtime_error("500");
+    	}
 
 		if (method == "POST" || method == "DELETE")
 			write(pipeStdIn[1], body.c_str(), body.length());

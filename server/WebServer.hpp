@@ -35,6 +35,7 @@ public:
 	void setClientTimeout(int timeout);
 	int getClientTimeout() const;
 	bool isClientTimeoutSet() const;
+	int getEpollFD();
 
 	// Convert a size string (e.g., "1k", "2m") to bytes.
 	// possible suffixes: k, K, m, M or none (bytes)

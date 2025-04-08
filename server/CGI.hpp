@@ -12,11 +12,12 @@ class CGI
 	private:
 		std::vector<char*> _env;
 		std::string _cgiDirectory;
+		WebServer *_webserver;
 
 		void setEnvironmentVariables(const HttpRequest &request, const std::string &scriptPath);
 
 	public:
-		CGI(const std::string &cgiDirectory);
+		CGI(const std::string &cgiDirectory, WebServer* webserver);
 		CGI(const CGI &src);
 		CGI &operator=(const CGI &src);
 		~CGI();
