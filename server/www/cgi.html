@@ -2,10 +2,10 @@
 <html lang="en">
 
 <head>
-	<link rel="stylesheet" href="style/style.css">
-	<link rel="stylesheet" href="style/topnav.css">
-	<link rel="stylesheet" href="style/footer.css">
-	<link rel="icon" href="images/default-icon.ico" type="image/x-icon">
+	<link rel="stylesheet" href="/style/style.css">
+	<link rel="stylesheet" href="/style/topnav.css">
+	<link rel="stylesheet" href="/style/footer.css">
+	<link rel="icon" href="/images/favicon.ico" type="image/x-icon">
 	<title>Webserv</title>
 </head>
 
@@ -25,6 +25,25 @@
 
 	<h2>CGI</h2>
 	<p1>We offer a variety of services to our clients.</p1>
+
+	<div>
+		<!-- <h3><a href="cgi-bin/hello.php">Hello PHP</a></h3>
+		<p2>This is a simple PHP script that returns a greeting.</p2> -->
+
+		<h3>Upload Python</h3>
+		<p2>This Python script allows you to upload files.</p2>
+		<form action="cgi-bin/upload.py" method="post" enctype="multipart/form-data">
+			<input type="file" name="file">
+			<input type="submit" value="Upload">
+		</form>
+
+		<h3>Download Python</h3>
+		<p2>This Python script allows you to download files.</p2>
+		<form action="cgi-bin/download.py" method="get">
+			<input type="text" name="filename" placeholder="Enter filename">
+			<input type="submit" value="Download">
+		</form>
+	</div>
 
 	<div class="footer">
 		&copy; 2025 Eric Reymond & Tal Kashi
