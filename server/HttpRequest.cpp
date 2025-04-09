@@ -699,8 +699,8 @@ void HttpRequest::parseMessageEnd(char c)
 }
 void HttpRequest::printRequestDBG() const
 {
-	if (!DEBUG)
-		return;
+	// if (!DEBUG)
+	// 	return;
 	std::cout << "Method: " << _method << std::endl;
 	std::cout << "Target: " << _target << std::endl;
 	std::cout << "Query: " << _query << std::endl;

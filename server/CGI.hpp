@@ -10,20 +10,19 @@
 class CGI
 {
 	private:
-		std::vector<char*> _env;
-		std::string _cgiDirectory;
-		WebServer *_webserver;
+		std::string _scriptPath;
+		std::map<std::string, std::string> _env;
+		std::string _postData;
 
-		void setEnvironmentVariables(const HttpRequest &request, const std::string &scriptPath);
+		void prepareEnvironmentVariables();
 
 	public:
-		CGI(const std::string &cgiDirectory, WebServer* webserver);
+		CGI(const std::string &scriptPath, const std::map<std::string, std::string> &env, const std::string &postData);
 		CGI(const CGI &src);
 		CGI &operator=(const CGI &src);
 		~CGI();
 
-		std::string execute(const std::string &scriptPath, const HttpRequest &request);
-
+		std::string execute(std::string serverRoot);
 };
 
 #endif

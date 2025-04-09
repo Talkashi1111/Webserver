@@ -1,76 +1,51 @@
 #include "CGI.hpp"
-#include <fstream>
+#include <cstdlib>
+#include <iostream>
 #include <sstream>
-#include <cstdio>
-#include <sys/stat.h>
-#include <cstring>
 #include <unistd.h>
-#include <stdexcept>
 #include <sys/wait.h>
+#include <fcntl.h>
+#include <stdio.h>
 
-CGI::CGI(const std::string &cgiDirectory) :_env(), _cgiDirectory(cgiDirectory), _webserver(webserver)
+CGI::CGI(const std::string &scriptPath,
+		const std::map<std::string, std::string> &env,
+		const std::string &postData)
+	: _scriptPath(scriptPath), _env(env), _postData(postData)
 {
-	if (cgiDirectory.empty())
-		throw std::runtime_error("CGI directory is empty");
+	// Print the environment variables for debugging
+	std::map<std::string, std::string>::iterator it;
+	for (it = _env.begin(); it != _env.end(); ++it)
+		std::cout << it->first << "=" << it->second << std::endl;
 }
 
-
-CGI::CGI(const CGI& src) : _env(src._env),
-						   _cgiDirectory(src._cgiDirectory),
-                           _webserver(src._webserver),
-
-{
-    // No need for additional logic in constructor body
-    // since all members are copied in initialization list
-    // and we don't have any resources requiring deep copy
-}
+CGI::CGI(const CGI &src)
+	: _scriptPath(src._scriptPath), _env(src._env), _postData(src._postData) {}
 
 CGI &CGI::operator=(const CGI &src)
 {
-	if (this != &src)
-	{
+	if (this != &src) {
+		_scriptPath = src._scriptPath;
 		_env = src._env;
-		_cgiDirectory = src._cgiDirectory;
-		_webserver = src._webserver;
+		_postData = src._postData;
 	}
 	return *this;
 }
 
 CGI::~CGI() {}
 
-std::string CGI::execute(const std::string &scriptPath, const HttpRequest &request)
+void CGI::prepareEnvironmentVariables()
 {
-	HttpResponse response;
-	std::string method = request.getMethod();
-	std::string queryString = request.getQuery();
-	std::string body = request.getBody();
-	std::map<std::string, std::string> headers = request.getHeaders();
-	std::string fullScriptPath = scriptPath;
+	std::map<std::string, std::string>::iterator it;
+	for (it = _env.begin(); it != _env.end(); ++it)
+		setenv(it->first.c_str(), it->second.c_str(), 1);
+}
 
-	setEnvironmentVariables(request, scriptPath);
+std::string CGI::execute(std::string serverRoot)
+{
+	int stdin_fd[2];
+	int stdout_fd[2];
 
-	std::cout << "Executing CGI script: " << fullScriptPath << std::endl;
-	struct stat st;
-	if (stat(fullScriptPath.c_str(), &st) == -1)
-	{
-		perror("stat");
-		throw std::runtime_error("404");
-	}
-	if (!S_ISREG(st.st_mode))
-	{
-		std::cerr << "Not a regular file: " << fullScriptPath << std::endl;
-		throw std::runtime_error("404");
-	}
-	if (access(fullScriptPath.c_str(), X_OK) == -1)
-	{
-		perror("access");
-		throw std::runtime_error("403");
-	}
-
-	int pipeStdOut[2];
-	int pipeStdIn[2];
-
-	if (pipe(pipeStdOut) == -1 || pipe(pipeStdIn) == -1)
+	if (pipe(stdin_fd) == -1 || pipe(stdout_fd) == -1)
 	{
 		perror("pipe");
 		throw std::runtime_error("500");
@@ -81,103 +56,63 @@ std::string CGI::execute(const std::string &scriptPath, const HttpRequest &reque
 	if (pid == -1)
 	{
 		perror("fork");
+		close(stdin_fd[0]);
+		close(stdin_fd[1]);
+		close(stdout_fd[0]);
+		close(stdout_fd[1]);
 		throw std::runtime_error("500");
 	}
 	else if (pid == 0) // Child process
 	{
-		dup2(pipeStdOut[1], STDOUT_FILENO);
-		close(pipeStdOut[0]); // Close read end of stdout pipe
-		close(pipeStdOut[1]); // Close write end of stdout pipe
+		close(stdin_fd[1]); // Close unused write end of stdin pipe
+		close(stdout_fd[0]); // Close unused read end of stdout pipe
 
-		if (method == "POST" || method == "DELETE")
-			dup2(pipeStdIn[0], STDIN_FILENO);
-		close(pipeStdIn[0]); // Close read end of stdin pipe
-		close(pipeStdIn[1]); // Close write end of stdin pipe
+		// Redirect stdin and stdout to the pipes
+		dup2(stdin_fd[0], STDIN_FILENO);
+		dup2(stdout_fd[1], STDOUT_FILENO);
 
+		close(stdin_fd[0]);
+		close(stdout_fd[1]);
 
-		// Execute the CGI script
-		std::vector<char*> argv;
-		argv.push_back(const_cast<char*>(fullScriptPath.c_str()));
-		argv.push_back(NULL);
+		// Prepare environment variables
+		prepareEnvironmentVariables();
 
-		execve(fullScriptPath.c_str(), argv.data(), _env.data());
-		perror("execve");
-		throw std::runtime_error("500");
+		// Set the script path
+		std::string scriptPath = serverRoot + _scriptPath;
+		if (scriptPath.find(".php") != std::string::npos)
+			execlp("/i=usr/bin/php-cgi", "php", scriptPath.c_str(), NULL);
+		else if (scriptPath.find(".py") != std::string::npos)
+			execlp("/usr/bin/python3", "python3", scriptPath.c_str(), NULL);
+		else
+			execl(scriptPath.c_str(), scriptPath.c_str(), NULL);
+		perror("execl");
+		exit(EXIT_FAILURE);
 	}
 	else // Parent process
 	{
-		close(pipeStdOut[1]); // Close write end of stdout pipe
-		close(pipeStdIn[0]);  // Close read end of stdin pipe
-		 // Add pipeStdOut[0] to epoll monitoring
-   		struct epoll_event ev;
-		ev.events = EPOLLIN;
-		ev.data.fd = pipeStdOut[0];
+		close(stdin_fd[0]); // Close unused read end of stdin pipe
+		close(stdout_fd[1]); // Close unused write end of stdout pipe
 
-		int epfd = _webserver->getEpollFD();
-		 if (epoll_ctl(epfd, EPOLL_CTL_ADD, pipeStdOut[0], &ev) == -1)
+		// Write post data to the CGI script
+		if (!_postData.empty())
 		{
-        	perror("epoll_ctl");
-        	close(pipeStdOut[0]);
-        	close(pipeStdIn[1]);
-        	throw std::runtime_error("500");
-    	}
+			write(stdin_fd[1], _postData.c_str(), _postData.size());
+		}
+		close(stdin_fd[1]);
 
-		if (method == "POST" || method == "DELETE")
-			write(pipeStdIn[1], body.c_str(), body.length());
-		close(pipeStdIn[1]); // Close write end of stdin pipe
-
-		std::string responseBody;
+		std::string response;
 		char buffer[4096];
 		ssize_t bytesRead;
-		while ((bytesRead = read(pipeStdOut[0], buffer, sizeof(buffer))) > 0)
-			responseBody.append(buffer, bytesRead);
-		close(pipeStdOut[0]); // Close read end of stdout pipe
 
-		int status;
-		waitpid(pid, &status, 0); // Wait for child process to finish
+		while ((bytesRead = read(stdout_fd[0], buffer, sizeof(buffer) - 1)) > 0)
+		{
+			buffer[bytesRead] = '\0';
+			response += buffer;
+		}
 
-		return responseBody;
+		close(stdout_fd[0]);
+		waitpid(pid, NULL, 0); // Wait for the child process to finish
+
+		return response;
 	}
-}
-
-void CGI::setEnvironmentVariables(const HttpRequest &request, const std::string &scriptPath)
-{
-	std::vector<std::string> env;
-
-	env.push_back("SERVER_SOFTWARE=webserver/1.0");
-	env.push_back("SERVER_NAME=" + request.getHostName());
-	env.push_back("GATEWAY_INTERFACE=CGI/1.1");
-	env.push_back("SERVER_PROTOCOL=HTTP/1.1");
-	env.push_back("REQUEST_METHOD=" + request.getMethod());
-	env.push_back("SCRIPT_NAME=" + scriptPath);
-	// env.push_back("PATH_INFO=" + request.getPath());
-	env.push_back("PATH_TRANSLATED=");
-	if (request.getMethod() == "GET" && !request.getQuery().empty())
-		env.push_back("QUERY_STRING=" + request.getQuery());
-	if (request.getMethod() == "POST" || request.getMethod() == "DELETE")
-	{
-		std::stringstream ss;
-		ss << request.getBody().length();
-		env.push_back("CONTENT_LENGTH=" + ss.str());
-		if (request.getHeaders().find("content-type") != request.getHeaders().end())
-			env.push_back("CONTENT_TYPE=" + request.getHeaders().find("content-type")->second);
-		else
-			env.push_back("CONTENT_TYPE=application/x-www-form-urlencoded");
-	}
-
-	std::map<std::string, std::string>::const_iterator it1;
-	for (it1 = request.getHeaders().begin(); it1 != request.getHeaders().end(); ++it1)
-	{
-		std::string headerName = it1->first;
-		std::string headerValue = it1->second;
-		if (headerName.find("HTTP_") == std::string::npos)//TODO: verify if this is correct
-			headerName = "HTTP_" + headerName;
-		env.push_back(headerName + "=" + headerValue);
-	}
-
-	_env.clear();
-	std::vector<std::string>::iterator it2;
-	for (it2 = env.begin(); it2 != env.end(); ++it2)
-		_env.push_back(const_cast<char*>(it2->c_str()));
-	_env.push_back(NULL);
 }

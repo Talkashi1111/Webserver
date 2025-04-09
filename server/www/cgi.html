@@ -30,19 +30,36 @@
 		<!-- <h3><a href="cgi-bin/hello.php">Hello PHP</a></h3>
 		<p2>This is a simple PHP script that returns a greeting.</p2> -->
 
-		<h3>Upload Python</h3>
-		<p2>This Python script allows you to upload files.</p2>
-		<form action="cgi-bin/upload.py" method="post" enctype="multipart/form-data">
+		<h3>Upload PHP</h3>
+		<p2>This PHP script allows you to upload files.</p2>
+		<form id="uploadForm" method="post" enctype="multipart/form-data">
 			<input type="file" name="file">
-			<input type="submit" value="Upload">
+			<button type="submit" name="submit">Upload</button>
 		</form>
+		<script>
+			document.getElementById("uploadForm").onsubmit = function (event) {
+				event.preventDefault();
 
-		<h3>Download Python</h3>
+				const formData = new FormData(this);
+				const file = document.querySelector('input[type="file"]').files[0];
+				alert("File selected: " + file.name);
+				if (!file) {
+					alert("Please select a file to upload.");
+					return;
+				}
+				fetch(this.action, {
+					method: "POST",
+					body: formData,
+				});
+			};
+		</script>
+
+		<!-- <h3>Download Python</h3>
 		<p2>This Python script allows you to download files.</p2>
 		<form action="cgi-bin/download.py" method="get">
 			<input type="text" name="filename" placeholder="Enter filename">
 			<input type="submit" value="Download">
-		</form>
+		</form> -->
 	</div>
 
 	<div class="footer">

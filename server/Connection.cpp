@@ -364,7 +364,7 @@ void Connection::generateReturnDirectiveResponse(const std::string &status, cons
 }
 
 // TODO: finish
-bool Connection::isCGI(std::string path, std::string &ext) const
+bool Connection::isCGI(std::string path) const
 {
 	std::string::reverse_iterator it = path.rbegin();
 	for (; it != path.rend(); ++it)
@@ -374,15 +374,13 @@ bool Connection::isCGI(std::string path, std::string &ext) const
 	}
 	if (it == path.rend())
 		return false;
-	size_t dotPos = path.length() - (it - path.rbegin()) - 1;
-	ext = path.substr(dotPos);
+	std::string ext = std::string(it.base() - 1, path.end());
 	std::map<std::string, std::string>::const_iterator it_cgi;
 	for (it_cgi = _serverConfig->getCgiBin().begin(); it_cgi != _serverConfig->getCgiBin().end(); ++it_cgi)
 	{
 		if (it_cgi->first == ext)
 			return true;
 	}
-
 	return false;
 }
 
@@ -423,6 +421,7 @@ std::string Connection::generateAutoIndex(const std::string &path) const
 void Connection::generateResponse()
 {
 	std::string fullPath(resolvePath(_locationConfig->getRoot(), _request.getTarget()));
+
 	if (fullPath[fullPath.length() - 1] == '/')
 	{
 		std::set<std::string> indexes = _locationConfig->getIndex();
@@ -436,29 +435,39 @@ void Connection::generateResponse()
 			}
 		}
 	}
-	else
+	else if (isCGI(fullPath))
 	{
-		std::string ext = "cgi";
-		if (!ext.empty() && isCGI(fullPath, ext))
+		std::cout << "CGI" << std::endl;
+		std::map<std::string, std::string> cgiEnv;
+		std::string filename;
+
+		filename = _request.getQuery();
+		if (filename.empty())
+			filename = _request.getTarget();
+		filename = filename.substr(filename.find("=") + 1);
+
+		cgiEnv["REQUEST_METHOD"] = _request.getMethod();
+		if (_request.getBody().length() > 0)
 		{
-			if (_serverConfig->getCgiBin().find(ext) != _serverConfig->getCgiBin().end())
-			{
-				std::string cgiPath = _serverConfig->getCgiBin().find(ext)->second;
-				CGI cgi(cgiPath, _webserver);
-				std::string body = cgi.execute(fullPath, _request);
-				std::ostringstream oss;
-				oss << "HTTP/1.1 200 OK\r\n";
-				oss << "Server: webserver/1.0\r\n";
-				oss << "Date: " << getCurrentTime() << "\r\n";
-				setContentType(fullPath, oss);
-				oss << "Content-Length: " << body.length() << "\r\n";
-				oss << "Connection: " << (_keepAlive ? "keep-alive" : "close") << "\r\n";
-				oss << "\r\n"
-					<< body;
-				_response.setResponse(oss.str());
-				return;
-			}
+			std::ostringstream ss;
+			ss << _request.getBody().length();
+			cgiEnv["CONTENT_LENGTH"] = ss.str();
+			cgiEnv["CONTENT_TYPE"] = _request.getHeaders().find("content-type")->second;
 		}
+		cgiEnv["SCRIPT_NAME"] = _request.getTarget();
+		cgiEnv["SERVER_PROTOCOL"] = _request.getVersion();
+		cgiEnv["SERVER_SOFTWARE"] = "webserv";
+		cgiEnv["SERVER_PORT"] = "8081";
+		cgiEnv["FILENAME"] = filename;
+
+		std::map<std::string, std::string>::const_iterator it;
+		for (it = cgiEnv.begin(); it != cgiEnv.end(); ++it)
+			std::cout << it->first << "=" << it->second << std::endl;
+
+		CGI cgi(fullPath, cgiEnv, _request.getBody());
+		std::string body = cgi.execute(_serverConfig->getRoot());
+
+		std::cout << "CGI body: " << body << std::endl;
 	}
 
 	std::string body;
