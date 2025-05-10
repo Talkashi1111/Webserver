@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Redirect Button</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding-top: 100px;
+            background-image: url("/images/lemon.png"); /* 👈 background image path */
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-attachment: fixed;
+        }
+
+        .redirect-btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .redirect-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+	<link rel="icon" href="/images/lemon.png" type="image/x-icon">
+</head>
+<body>
+    <h1>Welcome</h1>
+    <p>Click the button below to go to another directory:</p>
+
+    <button class="redirect-btn" onclick="redirect()">Go to index.html</button>
+
+    <script>
+        function redirect() {
+            window.location.href = "index.html";
+        }
+    </script>
+</body>
+</html>

@@ -31,5 +31,4 @@
 *.exe
 *.out
 *.app
-server/webserv
-server/client
+

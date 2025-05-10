@@ -8,8 +8,10 @@
 			"name": "Debug webserver",
 			"type": "cppdbg",
 			"request": "launch",
-			"program": "${workspaceFolder}/server/webserv",
-			"args": ["server/default.conf"],
+			"program": "${workspaceFolder}/webserv",
+			"args": [
+				"${workspaceFolder}/conf/tal_conf.conf"
+			],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}",
 			"environment": [],
