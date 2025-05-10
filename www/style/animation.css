@@ -1,0 +1,34 @@
+/* inherit your default font & colors */
+.get-container {
+    display: grid;
+    place-items: center;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.get-title {
+    font-family: "Eczar", serif;
+    font-weight: 800;
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    margin-bottom: 20px;
+    opacity: 0;
+    transform: translateY(40px);
+    animation: fadeSlide 0.8s ease-out 0.2s forwards;
+}
+
+.get-desc {
+    max-width: 600px;
+    line-height: 1.5;
+    margin-bottom: 30px;
+    opacity: 0;
+    transform: translateY(40px);
+    animation: fadeSlide 0.8s ease-out 0.4s forwards;
+}
+
+/* keyframes */
+@keyframes fadeSlide {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
