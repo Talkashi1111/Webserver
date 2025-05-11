@@ -1,33 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-	<link rel="stylesheet" href="/style/style.css">
-	<link rel="stylesheet" href="/style/topnav.css">
-	<link rel="stylesheet" href="/style/footer.css">
-	<link rel="icon" href="/images/favicon.ico" type="image/x-icon">
-	<title>Webserv</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About – Tal Kashi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Annie+Use+Your+Telescope&family=Eczar:wght@400..800&display=swap" rel="stylesheet">
+  <!-- main project stylesheet (adjust path if needed) -->
+  <link rel="stylesheet" href="../style/styles_tal.css">
+  <style>
+    /* page‑specific tweaks */
+    .about-wrapper{max-width:900px;margin:0 auto;padding:40px 20px;text-align:left;line-height:1.55}
+    .about-wrapper h1{font-size:2.6rem;margin-bottom:.5rem}
+    .about-wrapper h2{margin-top:2.2rem;font-size:1.8rem}
+    .badge{display:inline-block;background:#207e07;color:#fff;padding:2px 8px;border-radius:4px;font-size:.85rem;margin-right:4px}
+    ul.custom{list-style:disc;margin-left:1.2rem}
+    .grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+    .tag{display:inline-block;background:#ff9ad9;color:#fff;padding:4px 10px;border-radius:999px;font-size:.8rem;margin:3px}
+  </style>
 </head>
-
 <body>
-	<header>
-		<h1>Webserv: a 42 project</h1>
-		<p1>Welcome to the Webserv project, a web server implementation.</p1>
+  <nav>
+    <ul>
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="about.html">About</a></li>
+    </ul>
+  </nav>
 
-		<div class="topnav">
-			<a href="index.html" active="true">Home</a>
-			<a href="pages/error_pages.html">Error Pages</a>
-			<a class="tablinks active" href="pages/about.html">About</a>
-			<a href="pages/contact.html">Contact</a>
-		</div>
-	</header>
+  <main class="about-wrapper">
+    <h1 class="subtitle">Tal Kashi</h1>
+    <p><span class="badge">Junior Software Developer</span></p>
 
-	<h2>About Us</h2>
-	<p1>This page provides information about our website and services.</p1>
+    <h2>Details</h2>
+    <p>📍 1009 Pully, Switzerland<br>
+       ✉ taltol20051@gmail.com</p>
 
-	<div class="footer">
-		&copy; 2025 Eric Reymond & Tal Kashi
-	</div>
+    <h2>Education</h2>
+    <div class="grid-2">
+      <div>
+        <h3>École 42, Lausanne <small>(2023 – present)</small></h3>
+        <p>Student in software development; project‑based learning focused on systems, networking & algorithms.</p>
+      </div>
+      <div>
+        <h3>HEMU Lausanne <small>(2021 – 2023)</small></h3>
+        <p>Master’s degree – Classical piano performance.</p>
+      </div>
+      <div>
+        <h3>Academy of Music & Dance, Jerusalem <small>(2014 – 2018)</small></h3>
+        <p>Bachelor’s degree – Piano performance.</p>
+      </div>
+    </div>
+
+    <h2>Technical Skills</h2>
+    <ul class="custom">
+      <li><strong>Languages:</strong> C, C++98, basic Python, Bash</li>
+      <li><strong>Tools:</strong> Git, Makefiles, Docker (build), Wireshark, Postman, Valgrind</li>
+      <li><strong>Web & Systems:</strong> Nginx, MariaDB, WordPress, HTTP/1.1, Virtual Machines</li>
+      <li><strong>Environments:</strong> Linux, VS Code, terminal</li>
+    </ul>
+
+    <h2>Selected Projects</h2>
+    <ul class="custom">
+      <li><strong>Custom HTTP Server (C++98):</strong> complete HTTP/1.1 server with Nginx‑style config & CGI support.</li>
+      <li><strong>Mini Shell (C):</strong> UNIX shell supporting pipes, redirections, env handling & multi‑processing.</li>
+      <li><strong>2D Game (C):</strong> simple graphics demo with event‑driven design using MiniLibX.</li>
+      <li><strong>Concurrency & Sync:</strong> multithreaded resource‑sharing simulation (mutexes & threads).</li>
+      <li><strong>Algorithms & DS:</strong> Ford‑Johnson sort, stack‑based sorting and other optimisation projects.</li>
+    </ul>
+
+    <h2>About Me</h2>
+    <p>I’m curious, motivated and love figuring out how things work. At École 42 we learn autonomously and through peer collaboration. My previous life as a concert pianist trained me in discipline, deep focus and performing under pressure. I now seek a first internship or junior role where I can keep learning and contribute to real‑world projects in a friendly team.</p>
+  </main>
+
+  <footer>
+    <p>© 2025 Web Server Project. All rights reserved.</p>
+  </footer>
 </body>
-
 </html>

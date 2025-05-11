@@ -1,17 +1,6 @@
-# Debugging
-Enable debugging by running:
-```bash
-DEBUG=1 make re
-```
-
-# Check leaks
-```bash
-valgrind --leak-check=full --show-leak-kinds=all --track-fds=yes ./webserv
-```
-
 # Webserv Configuration Documentation
 
-This document explains the structure and directives of the webserver configuration file. The configuration is inspired by NGINX but includes custom directives (such as `cgi_bin` and `upload_directory`) required by the 42 webserver project. This documentation outlines each key’s context, default values, usage, and occurrences.
+This document explains the structure and directives of the webserver configuration file. The configuration is inspired by NGINX.
 
 ---
 
@@ -31,7 +20,7 @@ These defaults apply if a directive is not explicitly specified in a server bloc
 
 - **Root**
   - **Context:** Server (or Location) block
-  - **Default:** `/var/www/html`
+  - **Default:** Calculates current working directory + `/www`, fallback to `/var/www/html`.
   - **Purpose:** Sets the base directory for mapping request URIs to the filesystem.
 
 - **Index**
@@ -215,7 +204,18 @@ Location blocks are nested inside server blocks and apply to specific URI patter
   - **Usage:** Provides a response for that specific location; server-level return directive takes precedence over location-level return directive.
 
 - **upload_directory**
-  - **Usage:** Used within an upload-specific location (e.g., `/upload`) to specify where uploaded files should be stored.
+  - **Usage:** Used within an upload-specific location to specify where uploaded files should be stored.
+  - **Example:** `upload_directory /path/to/uploads;`
+  - **Configuration Requirements:**
+    - Must be configured in a location block that is a prefix of the upload.py path
+    - For example, if upload.py is in the /cgi-bin directory, the location block should be:
+      ```nginx
+      location /cgi-bin {
+          upload_directory /home/csa/Documents/taltol/webserver/www/uploads/;
+      }
+      ```
+    - This configuration will be passed as an environment variable to the upload.py CGI script
+  - **Note:** If not configured correctly, file uploads may fail with a configuration error
 
 ---
 
@@ -227,7 +227,7 @@ Below is a summary of an example configuration:
 # Global Defaults (if not explicitly overridden):
 # - Listens on 0.0.0.0:80
 # - server_name is empty
-# - root is /var/www/html
+# - root is current working directory + '/www'
 # - index is index.html
 # - client_timeout is 75
 # - client_header_buffer_size is 2k

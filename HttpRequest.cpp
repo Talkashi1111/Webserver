@@ -92,7 +92,7 @@ void HttpRequest::parseRequest(const std::string &raw)
 {
 	for (std::size_t i = 0; _state != S_DONE && _state != S_ERROR && i < raw.size(); i++)
 	{
-		char c = raw[i];
+		unsigned char c = raw[i];
 		switch (_state)
 		{
 		case S_START:
@@ -189,7 +189,7 @@ void HttpRequest::parseRequest(const std::string &raw)
 	}
 }
 
-void HttpRequest::parseStart(char c)
+void HttpRequest::parseStart(unsigned char c)
 {
 	if (c == '\r')
 	{
@@ -210,7 +210,7 @@ void HttpRequest::parseStart(char c)
 	}
 }
 
-void HttpRequest::parseRestart(char c)
+void HttpRequest::parseRestart(unsigned char c)
 {
 	if (c == '\n')
 	{
@@ -221,7 +221,7 @@ void HttpRequest::parseRestart(char c)
 	throw std::runtime_error("400");
 }
 
-void HttpRequest::parseMethod(char c)
+void HttpRequest::parseMethod(unsigned char c)
 {
 	if (_method.length() > 6)
 	{
@@ -250,7 +250,7 @@ void HttpRequest::parseMethod(char c)
 	}
 }
 
-void HttpRequest::parseSpacesBeforeUri(char c)
+void HttpRequest::parseSpacesBeforeUri(unsigned char c)
 {
 	if (c == ' ')
 		return;
@@ -267,7 +267,7 @@ void HttpRequest::parseSpacesBeforeUri(char c)
 	}
 }
 
-void HttpRequest::parseUri(char c)
+void HttpRequest::parseUri(unsigned char c)
 {
 	if (c < 32 || c >= 127)
 	{
@@ -284,7 +284,7 @@ void HttpRequest::parseUri(char c)
 		_target += c;
 }
 
-void HttpRequest::parseQuery(char c)
+void HttpRequest::parseQuery(unsigned char c)
 {
 	if (c < 32 || c >= 127)
 	{
@@ -299,7 +299,7 @@ void HttpRequest::parseQuery(char c)
 		_query += c;
 }
 
-void HttpRequest::parseFragment(char c)
+void HttpRequest::parseFragment(unsigned char c)
 {
 	if (c < 32 || c >= 127)
 	{
@@ -311,7 +311,7 @@ void HttpRequest::parseFragment(char c)
 	// No need to store fragment since it is not used by the server
 }
 
-void HttpRequest::parseSpacesBeforeVersion(char c)
+void HttpRequest::parseSpacesBeforeVersion(unsigned char c)
 {
 	if (c == ' ')
 		return;
@@ -327,7 +327,7 @@ void HttpRequest::parseSpacesBeforeVersion(char c)
 	}
 }
 
-void HttpRequest::parseVersion(char c)
+void HttpRequest::parseVersion(unsigned char c)
 {
 	// Only valid format is "HTTP/1.1"
 	if (c == '\r')
@@ -371,7 +371,7 @@ void HttpRequest::parseVersion(char c)
 	}
 }
 
-void HttpRequest::parseRequestLineEnd(char c)
+void HttpRequest::parseRequestLineEnd(unsigned char c)
 {
 	if (c == '\n')
 		_state = S_HEADER_NAME;
@@ -382,7 +382,7 @@ void HttpRequest::parseRequestLineEnd(char c)
 	}
 }
 
-void HttpRequest::parseHeaderName(char c)
+void HttpRequest::parseHeaderName(unsigned char c)
 {
 	if (c == ':')
 	{
@@ -408,7 +408,7 @@ void HttpRequest::parseHeaderName(char c)
 		_currentHeaderName += c;
 }
 
-void HttpRequest::parseHeaderColon(char c)
+void HttpRequest::parseHeaderColon(unsigned char c)
 {
 	if (c == ' ' || c == '\t')
 		return;
@@ -423,7 +423,7 @@ void HttpRequest::parseHeaderColon(char c)
 	_currentHeaderValue += c;
 }
 
-void HttpRequest::parseHeaderValue(char c)
+void HttpRequest::parseHeaderValue(unsigned char c)
 {
 	if (c == '\r')
 	{
@@ -466,7 +466,7 @@ void HttpRequest::parseHeaderValue(char c)
 	_currentHeaderValue += c;
 }
 
-void HttpRequest::parseHeaderCR(char c)
+void HttpRequest::parseHeaderCR(unsigned char c)
 {
 	if (c == '\n')
 	{
@@ -478,7 +478,7 @@ void HttpRequest::parseHeaderCR(char c)
 	throw std::runtime_error("400");
 }
 
-void HttpRequest::parseHeaderLF(char c)
+void HttpRequest::parseHeaderLF(unsigned char c)
 {
 
 	if (c == '\r')
@@ -512,7 +512,7 @@ void HttpRequest::parseHeaderLF(char c)
 	return;
 }
 
-void HttpRequest::parseHeaderEnd(char c)
+void HttpRequest::parseHeaderEnd(unsigned char c)
 {
 	if (c == '\n')
 	{
@@ -560,7 +560,7 @@ void HttpRequest::parseHeaderEnd(char c)
 	throw std::runtime_error("400");
 }
 
-void HttpRequest::parseHex(char c)
+void HttpRequest::parseHex(unsigned char c)
 {
 	if (c == '\r')
 	{
@@ -586,7 +586,7 @@ void HttpRequest::parseHex(char c)
 	}
 }
 
-void HttpRequest::parseHexEnd(char c)
+void HttpRequest::parseHexEnd(unsigned char c)
 {
 	if (c == '\n')
 	{
@@ -612,7 +612,7 @@ void HttpRequest::parseHexEnd(char c)
 	throw std::runtime_error("400");
 }
 
-void HttpRequest::parseChunk(char c)
+void HttpRequest::parseChunk(unsigned char c)
 {
 	if (_currentChunkRead == _currentChunkSize && c == '\r')
 	{
@@ -635,7 +635,7 @@ void HttpRequest::parseChunk(char c)
 	throw std::runtime_error("400");
 }
 
-void HttpRequest::parseChunkEnd(char c)
+void HttpRequest::parseChunkEnd(unsigned char c)
 {
 	if (c == '\n')
 	{
@@ -646,7 +646,7 @@ void HttpRequest::parseChunkEnd(char c)
 	throw std::runtime_error("400");
 }
 
-void HttpRequest::parseBody(char c)
+void HttpRequest::parseBody(unsigned char c)
 {
 	if (_body.size() >= _clientMaxBodySize)
 	{
@@ -662,6 +662,7 @@ void HttpRequest::printRequestDBG() const
 {
 	if (!DEBUG)
 		return;
+	std::cout << "================================" << std::endl;
 	std::cout << "Method: " << _method << std::endl;
 	std::cout << "Target: " << _target << std::endl;
 	std::cout << "Query: " << _query << std::endl;
@@ -671,7 +672,25 @@ void HttpRequest::printRequestDBG() const
 	{
 		std::cout << "  " << it->first << ": " << it->second << std::endl;
 	}
-	std::cout << "Body: " << _body << std::endl;
+
+	// Check if Content-Type suggests binary data
+	std::map<std::string, std::string>::const_iterator contentType = _headers.find("content-type");
+	bool isBinary = (contentType != _headers.end() &&
+		(contentType->second.find("image/") != std::string::npos ||
+		 contentType->second.find("application/octet-stream") != std::string::npos ||
+		 contentType->second.find("audio/") != std::string::npos ||
+		 contentType->second.find("video/") != std::string::npos));
+
+	// Also check for null bytes in the body as a fallback detection method
+	if (!isBinary && _body.find('\0') != std::string::npos) {
+		isBinary = true;
+	}
+
+	if (isBinary) {
+		std::cout << "Body: [Binary data, length: " << _body.length() << " bytes]" << std::endl;
+	} else {
+		std::cout << "Body: " << _body << std::endl;
+	}
 }
 
 const std::string &HttpRequest::getHostName() const

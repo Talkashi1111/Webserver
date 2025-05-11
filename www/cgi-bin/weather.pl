@@ -49,8 +49,53 @@ print <<"HTML";
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather Information</title>
     <link rel="stylesheet" href="../style/weather.css">
+    <style>
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #444;
+            padding: 10px;
+            z-index: 100;
+        }
+
+        nav ul {
+            list-style-type: none;
+            display: flex;
+            gap: 15px;
+            margin: 0;
+            padding: 0 20px;
+        }
+
+        nav ul li {
+            margin: 0;
+        }
+
+        nav ul li a {
+            color: #fff;
+            text-decoration: none;
+            padding: 5px 15px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        nav ul li a:hover {
+            background-color: #666;
+        }
+
+        /* Adjust body to account for fixed nav */
+        body {
+            padding-top: 50px;
+        }
+    </style>
 </head>
 <body>
+    <nav>
+        <ul>
+            <li><a href="../index.html">Home</a></li>
+        </ul>
+    </nav>
     <div class="container">
         <div class="weather-card">
             <h1>Current Weather</h1>
@@ -64,3 +109,4 @@ print <<"HTML";
 </body>
 </html>
 HTML
+#TODO: add a link to home page

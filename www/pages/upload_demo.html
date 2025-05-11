@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Upload demo</title>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Annie+Use+Your+Telescope&family=Eczar:wght@400..800&display=swap" rel="stylesheet" />
+
+	<!-- your global styles -->
+	<link rel="stylesheet" href="../style/styles_tal.css" />
+</head>
+
+<body>
+	<nav>
+		<ul>
+			<li><a href="../index.html">Home</a></li>
+			<li><a href="about.html">About</a></li>
+		</ul>
+	</nav>
+	<main>
+		<h2 class="subtitle">Upload a file</h2>
+		<p>Select any file (≤ 10 MB) and click <strong>Upload</strong>.</p>
+
+		<form action="/cgi-bin/upload.py"
+			  method="post"
+			  enctype="multipart/form-data"
+			  class="upload-form">
+
+			<input type="file" name="file" required />
+			<br /><br />
+			<button type="submit" class="button">Upload</button>
+		</form>
+	</main>
+
+	<footer>
+		<p>© 2025 Web Server Project. All rights reserved.</p>
+	</footer>
+</body>
+</html>

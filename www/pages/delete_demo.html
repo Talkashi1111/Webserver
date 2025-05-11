@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Delete Files</title>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Annie+Use+Your+Telescope&family=Eczar:wght@400..800&display=swap" rel="stylesheet" />
+
+	<!-- your global styles -->
+	<link rel="stylesheet" href="../style/styles_tal.css" />
+
+	<style>
+		.file-list {
+			width: 100%;
+			max-width: 800px;
+			margin: 20px auto;
+		}
+
+		.file-entry {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 10px;
+			margin: 10px 0;
+			background-color: rgba(255, 20, 147, 0.05);
+			border-radius: 8px;
+			box-shadow: 0 0 5px rgba(255, 20, 147, 0.2);
+			transition: all 0.3s ease;
+		}
+
+		.file-entry:hover {
+			background-color: rgba(255, 20, 147, 0.1);
+			transform: translateY(-2px);
+		}
+
+		.file-name {
+			flex-grow: 1;
+			padding: 0 15px;
+			font-weight: bold;
+			color: #333;
+		}
+
+		.file-controls {
+			display: flex;
+			gap: 10px;
+		}
+
+		.delete-btn {
+			background: linear-gradient(135deg, #ff6b6b 0%, #ff1493 100%);
+			color: white;
+			border: none;
+			padding: 6px 12px;
+			border-radius: 4px;
+			cursor: pointer;
+			font-weight: bold;
+			transition: all 0.2s ease;
+			box-shadow: 0 2px 5px rgba(255, 20, 147, 0.3);
+		}
+
+		.delete-btn:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 4px 8px rgba(255, 20, 147, 0.5);
+		}
+
+		.delete-btn:active {
+			transform: translateY(1px);
+		}
+
+		.empty-message {
+			text-align: center;
+			color: #666;
+			padding: 20px;
+			font-style: italic;
+		}
+
+		.status-area {
+			text-align: center;
+			margin: 20px 0;
+			padding: 10px;
+			border-radius: 8px;
+		}
+
+		.success-message {
+			background-color: rgba(76, 175, 80, 0.1);
+			color: #388e3c;
+			border-left: 4px solid #4caf50;
+		}
+
+		.error-message {
+			background-color: rgba(244, 67, 54, 0.1);
+			color: #d32f2f;
+			border-left: 4px solid #f44336;
+		}
+
+		.hidden {
+			display: none;
+		}
+
+		.loading {
+			text-align: center;
+			padding: 20px;
+			color: #ff1493;
+		}
+
+		.file-count {
+			text-align: center;
+			margin-top: 15px;
+			padding: 5px;
+			font-weight: bold;
+			color: #ff1493;
+		}
+	</style>
+</head>
+
+<body>
+	<nav>
+		<ul>
+			<li><a href="../index.html">Home</a></li>
+			<li><a href="about.html">About</a></li>
+		</ul>
+	</nav>
+
+	<main>
+		<h2 class="subtitle">Delete Files</h2>
+		<p>Below are the files in the uploads directory. Click the delete button to remove a file.</p>
+
+		<div id="status-area" class="status-area hidden"></div>
+
+		<div class="file-list">
+			<div id="loading" class="loading">Loading files...</div>
+			<div id="file-container"></div>
+			<div id="file-count" class="file-count"></div>
+		</div>
+
+		<div class="button-container">
+			<button class="button" onclick="loadFiles()">Refresh File List</button>
+		</div>
+	</main>
+
+	<footer>
+		<p>© 2025 Web Server Project. All rights reserved.</p>
+	</footer>
+
+	<script>
+		// Function to load files from the uploads directory
+		function loadFiles() {
+			const container = document.getElementById('file-container');
+			const loading = document.getElementById('loading');
+			const countDisplay = document.getElementById('file-count');
+
+			// Show loading indicator
+			loading.classList.remove('hidden');
+			container.innerHTML = '';
+
+			// Fetch the files from the uploads directory
+			fetch('/uploads/')
+				.then(response => response.text())
+				.then(html => {
+					// Parse the HTML to extract file links
+					const parser = new DOMParser();
+					const doc = parser.parseFromString(html, 'text/html');
+					const links = Array.from(doc.querySelectorAll('a'));
+
+					// Filter out parent directory links or other non-file links
+					const fileLinks = links.filter(link => {
+						const href = link.getAttribute('href');
+						return href;
+					});
+
+					// Hide loading indicator
+					loading.classList.add('hidden');
+
+					// Update file count
+					countDisplay.textContent = `${fileLinks.length} files found`;
+
+					// If no files were found
+					if (fileLinks.length === 0) {
+						container.innerHTML = '<div class="empty-message">No files found in the uploads directory.</div>';
+						return;
+					}
+
+					// Create elements for each file
+					fileLinks.forEach(link => {
+						const filename = decodeURIComponent(link.textContent.trim());
+
+						const fileEntry = document.createElement('div');
+						fileEntry.className = 'file-entry';
+
+						const fileLink = document.createElement('a');
+						fileLink.href = `/uploads/${filename}`;
+						fileLink.textContent = '📄';
+						fileLink.title = 'View file';
+						fileLink.target = '_blank';
+
+						const fileName = document.createElement('div');
+						fileName.className = 'file-name';
+						fileName.textContent = filename;
+
+						const fileControls = document.createElement('div');
+						fileControls.className = 'file-controls';
+
+						const deleteBtn = document.createElement('button');
+						deleteBtn.className = 'delete-btn';
+						deleteBtn.textContent = 'Delete';
+						deleteBtn.onclick = () => deleteFile(filename);
+
+						fileControls.appendChild(deleteBtn);
+						fileEntry.appendChild(fileLink);
+						fileEntry.appendChild(fileName);
+						fileEntry.appendChild(fileControls);
+						container.appendChild(fileEntry);
+					});
+				})
+				.catch(error => {
+					console.error('Error loading files:', error);
+					loading.classList.add('hidden');
+					container.innerHTML = `<div class="error-message">Error loading files: ${error.message}</div>`;
+					countDisplay.textContent = '';
+				});
+		}
+
+		// Function to delete a file
+		function deleteFile(filename) {
+			if (!confirm(`Are you sure you want to delete ${filename}?`)) {
+				return;
+			}
+
+			const statusArea = document.getElementById('status-area');
+
+			// Send request to delete the file
+			fetch(`/cgi-bin/delete_file.py?filename=${encodeURIComponent(filename)}`, {
+				method: 'GET'
+			})
+			.then(response => {
+				if (!response.ok) {
+					throw new Error(`HTTP error ${response.status}`);
+				}
+				return response.text();
+			})
+			.then(() => {
+				// Show success message
+				statusArea.className = 'status-area success-message';
+				statusArea.textContent = `File "${filename}" deleted successfully!`;
+				statusArea.classList.remove('hidden');
+
+				// Remove the status message after 3 seconds
+				setTimeout(() => {
+					statusArea.classList.add('hidden');
+				}, 3000);
+
+				// Reload the file list
+				loadFiles();
+			})
+			.catch(error => {
+				console.error('Error deleting file:', error);
+				statusArea.className = 'status-area error-message';
+				statusArea.textContent = `Error deleting file: ${error.message}`;
+				statusArea.classList.remove('hidden');
+			});
+		}
+
+		// Load files when the page loads
+		document.addEventListener('DOMContentLoaded', loadFiles);
+	</script>
+</body>
+</html>

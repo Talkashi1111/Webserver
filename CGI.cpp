@@ -111,9 +111,15 @@ void CGI::setCgiBodySentBytes(int bytes)
 }
 
 char **CGI::createEnv(const HttpRequest &request, const std::string &scriptPath,
-					  const std::string &localPort, const std::string &remoteHost) const
+					  const std::string &localPort, const std::string &remoteHost,
+					  const std::string &uploadDir) const
 {
 	std::vector<std::string> env_strings;
+	if (!uploadDir.empty())
+		env_strings.push_back("UPLOAD_DIR=" + uploadDir);
+
+	if (DEBUG)
+		env_strings.push_back("DEBUG=1");
 
 	env_strings.push_back("GATEWAY_INTERFACE=CGI/1.1");
 	env_strings.push_back("SERVER_PROTOCOL=" + request.getVersion());
@@ -197,7 +203,7 @@ char **CGI::createEnv(const HttpRequest &request, const std::string &scriptPath,
 }
 
 void CGI::start(const HttpRequest &request, const std::string &cgiPath, const std::string &scriptPath,
-				const std::string &localPort, const std::string &remoteHost)
+				const std::string &localPort, const std::string &remoteHost, const std::string &uploadDir)
 {
 	// Check if CGI executable exists and is executable
 	if (access(cgiPath.c_str(), X_OK) == -1)
@@ -271,7 +277,7 @@ void CGI::start(const HttpRequest &request, const std::string &cgiPath, const st
 
 		try
 		{
-			envp = createEnv(request, scriptPath, localPort, remoteHost);
+			envp = createEnv(request, scriptPath, localPort, remoteHost, uploadDir);
 			if (envp == NULL)
 			{
 				std::cerr << "failed to create environment variables" << std::endl;

@@ -55,25 +55,25 @@ private:
     std::string _chunkSizeLine;  // Buffer for partial chunk size line
 
 	// parsing functions
-	void parseStart(char c);
-	void parseRestart(char c);
-	void parseMethod(char c);
-	void parseSpacesBeforeUri(char c);
-	void parseUri(char c);
-	void parseQuery(char c);
-	void parseFragment(char c);
-	void parseSpacesBeforeVersion(char c);
-	void parseVersion(char c);
-	void parseRequestLineEnd(char c);
-	void parseHeaderName(char c);
-	void parseHeaderColon(char c);
-	void parseHeaderValue(char c);
-	void parseHeaderCR(char c);
-	void parseHeaderLF(char c);
-	void parseHeaderEnd(char c);
-	void parseHex(char c);
-	void parseHexEnd(char c);
-	void parseChunk(char c);
-	void parseChunkEnd(char c);
-	void parseBody(char c);
+	void parseStart(unsigned char c);
+	void parseRestart(unsigned char c);
+	void parseMethod(unsigned char c);
+	void parseSpacesBeforeUri(unsigned char c);
+	void parseUri(unsigned char c);
+	void parseQuery(unsigned char c);
+	void parseFragment(unsigned char c);
+	void parseSpacesBeforeVersion(unsigned char c);
+	void parseVersion(unsigned char c);
+	void parseRequestLineEnd(unsigned char c);
+	void parseHeaderName(unsigned char c);
+	void parseHeaderColon(unsigned char c);
+	void parseHeaderValue(unsigned char c);
+	void parseHeaderCR(unsigned char c);
+	void parseHeaderLF(unsigned char c);
+	void parseHeaderEnd(unsigned char c);
+	void parseHex(unsigned char c);
+	void parseHexEnd(unsigned char c);
+	void parseChunk(unsigned char c);
+	void parseChunkEnd(unsigned char c);
+	void parseBody(unsigned char c);
 };

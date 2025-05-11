@@ -27,10 +27,11 @@ public:
 	void setCgiBodySentBytes(int bytes);
 
 	void start(const HttpRequest &request, const std::string &cgiPath, const std::string &scriptPath,
-	          const std::string &localPort, const std::string &remoteHost);
+	          const std::string &localPort, const std::string &remoteHost, const std::string &uploadDir);
 
 	char **createEnv(const HttpRequest &request, const std::string &scriptPath,
-	               const std::string &localPort, const std::string &remoteHost) const;
+	               const std::string &localPort, const std::string &remoteHost,
+				   const std::string &uploadDir) const;
 
 private:
 	int _inFd;

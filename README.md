@@ -1,4 +1,15 @@
 
+# Debugging
+Enable debugging by running:
+```bash
+DEBUG=1 make re
+```
+
+# Check leaks
+```bash
+valgrind --leak-check=full --show-leak-kinds=all --track-fds=yes ./webserv
+```
+
 # Stress Testing Tool using wrk (for Server)
 
 **wrk** is a modern HTTP tool capable of generating significant load when run on a single multi-core CPU. It uses multiple threads to work on several tasks at the same time, and it also utilizes smart systems (like **epoll** and **kqueue**) to quickly and efficiently detect events on many connections.

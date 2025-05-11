@@ -480,6 +480,7 @@ RequestState Connection::handleCgiSend(int fd)
 	}
 
 	cgiBodySentBytes += bytesSent;
+	_cgi.setCgiBodySentBytes(cgiBodySentBytes);
 	if (cgiBodySentBytes >= body.size())
 	{
 		if (DEBUG)
@@ -689,46 +690,106 @@ std::string Connection::getCgiPath(const std::string &path) const
 	return oss.str();
 } */
 
-std::string Connection::generateAutoIndex(const std::string& path) const
+std::string Connection::generateAutoIndex(const std::string& path, const std::string &target) const
 {
-    std::ostringstream oss;
-    oss << "<!DOCTYPE html>\n<html>\n<head>\n"
-        << "  <meta charset=\"utf-8\">\n"
-        << "  <title>Index of " << path << "</title>\n"
-        << "  <style>\n"
-        << "    /* shiny pink auto-index */\n"
-        << "    ul.autoindex      {list-style:none;margin:0;padding:0;}\n"
-        << "    ul.autoindex li   {margin:8px 0;}\n"
-        << "    ul.autoindex a    {\n"
-        << "      display:inline-block;padding:6px 12px;border-radius:6px;\n"
-        << "      font-weight:700;color:#fff;text-decoration:none;\n"
-        << "      background:linear-gradient(135deg,#ff9ad9 0%,#ff4cbe 50%,#ff1493 100%);\n"
-        << "      box-shadow:0 0 8px rgba(255,20,147,.6);\n"
-        << "      transition:transform .3s,box-shadow .3s;\n"
-        << "    }\n"
-        << "    ul.autoindex a:hover {\n"
-        << "      transform:translateY(-3px) scale(1.06);\n"
-        << "      box-shadow:0 0 12px rgba(255,20,147,.85),0 0 22px rgba(255,20,147,.65);\n"
-        << "    }\n"
-        << "  </style>\n"
-        << "</head>\n<body>\n"
-        << "  <h1>Index of " << path << "</h1>\n"
-        << "  <hr>\n"
-        << "  <ul class=\"autoindex\">\n";
+	std::ostringstream oss;
+	oss << "<!DOCTYPE html>\n<html>\n<head>\n"
+		<< "  <meta charset=\"utf-8\">\n"
+		<< "  <title>Index of " << path << "</title>\n"
+		<< "  <style>\n"
+		<< "    /* shiny pink auto-index */\n"
+		<< "    body {\n"
+		<< "      background-color: #fff0f5; /* Light pink background */\n"
+		<< "      font-family: Arial, sans-serif;\n"
+		<< "      margin: 0;\n"
+		<< "      padding: 20px;\n"
+		<< "      display: flex;\n"
+		<< "      flex-direction: column;\n"
+		<< "      align-items: center;\n"
+		<< "      min-height: 100vh;\n"
+		<< "    }\n"
+		<< "    h1.autoindex-title {\n"
+		<< "      display: inline-block;\n"
+		<< "      padding: 10px 20px;\n"
+		<< "      border-radius: 8px;\n"
+		<< "      color: #fff;\n"
+		<< "      text-align: center;\n"
+		<< "      margin: 20px 0;\n"
+		<< "      background: linear-gradient(135deg, #ff9ad9 0%, #ff4cbe 50%, #ff1493 100%);\n"
+		<< "      box-shadow: 0 0 12px rgba(255,20,147,.7);\n"
+		<< "      text-shadow: 0 2px 4px rgba(0,0,0,0.2);\n"
+		<< "    }\n"
+		<< "    hr {\n"
+		<< "      width: 80%;\n"
+		<< "      border: none;\n"
+		<< "      height: 1px;\n"
+		<< "      background: rgba(255,20,147,0.3);\n"
+		<< "      margin: 20px 0;\n"
+		<< "    }\n"
+		<< "    ul.autoindex {\n"
+		<< "      list-style: none;\n"
+		<< "      margin: 0;\n"
+		<< "      padding: 0;\n"
+		<< "      text-align: center;\n"
+		<< "      width: 80%;\n"
+		<< "      max-width: 600px;\n"
+		<< "    }\n"
+		<< "    ul.autoindex li {\n"
+		<< "      margin: 8px 0;\n"
+		<< "    }\n"
+		<< "    ul.autoindex a {\n"
+		<< "      display: inline-block;\n"
+		<< "      padding: 6px 12px;\n"
+		<< "      border-radius: 6px;\n"
+		<< "      font-weight: 700;\n"
+		<< "      color: #fff;\n"
+		<< "      text-decoration: none;\n"
+		<< "      background: linear-gradient(135deg, #ff9ad9 0%, #ff4cbe 50%, #ff1493 100%);\n"
+		<< "      box-shadow: 0 0 8px rgba(255,20,147,.6);\n"
+		<< "      transition: transform .3s, box-shadow .3s;\n"
+		<< "      min-width: 150px;\n"
+		<< "    }\n"
+		<< "    ul.autoindex a:hover {\n"
+		<< "      transform: translateY(-3px) scale(1.06);\n"
+		<< "      box-shadow: 0 0 12px rgba(255,20,147,.85), 0 0 22px rgba(255,20,147,.65);\n"
+		<< "    }\n"
+		<< "    .counter {\n"
+		<< "      background: rgba(255,20,147,0.1);\n"
+		<< "      border-radius: 8px;\n"
+		<< "      padding: 8px 16px;\n"
+		<< "      margin-top: 20px;\n"
+		<< "      font-weight: bold;\n"
+		<< "      color: #ff1493;\n"
+		<< "      box-shadow: 0 0 5px rgba(255,20,147,.3);\n"
+		<< "      text-align: center;\n"
+		<< "    }\n"
+		<< "  </style>\n"
+		<< "</head>\n<body>\n"
+		<< "  <h1 class=\"autoindex-title\">Index of " << path << "</h1>\n"
+		<< "  <hr>\n"
+		<< "  <ul class=\"autoindex\">\n";
 
-    DIR* dir = opendir(path.c_str());
-    if (!dir) return "";
+	DIR* dir = opendir(path.c_str());
+	if (!dir) return "";
 
-    for (dirent* entry; (entry = readdir(dir));) {
-        if (entry->d_name[0] == '.') continue;
-        std::string name = entry->d_name;
-        if (isDirectory(path + '/' + name)) name += '/';
-        oss << "    <li><a href=\"" << name << "\">" << name << "</a></li>\n";
-    }
-    closedir(dir);
+	int entryCount = 0;
+	for (dirent* entry; (entry = readdir(dir));) {
+		if (entry->d_name[0] == '.') continue; // Skip hidden files
+		std::string name = entry->d_name;
+		if (isDirectory(path + '/' + name)) name += '/';
+		oss << "    <li><a href=\"" << target + '/' + name << "\">" << name << "</a></li>\n";
+		entryCount++;
+	}
+	closedir(dir);
 
-    oss << "  </ul>\n  <hr>\n</body>\n</html>\n";
-    return oss.str();
+	oss << "  </ul>\n"
+		<< "  <hr>\n";
+
+	if (entryCount == 0)
+		oss << "  <div class=\"counter\">No entries found</div>\n";
+
+	oss << "</body>\n</html>\n";
+	return oss.str();
 }
 
 void Connection::generateResponse()
@@ -752,7 +813,7 @@ void Connection::generateResponse()
 	{
 		if (_locationConfig->getAutoindex())
 		{
-			std::string autoindex = generateAutoIndex(fullPath);
+			std::string autoindex = generateAutoIndex(fullPath, _request.getTarget());
 			std::ostringstream oss;
 			oss << "HTTP/1.1 200 OK\r\n";
 			oss << "Server: webserver/1.0\r\n";
@@ -781,7 +842,7 @@ void Connection::generateResponse()
 		std::string cgiPath = getCgiPath(fullPath);
 		if (!cgiPath.empty())
 		{
-			_cgi.start(_request, cgiPath, fullPath, _port, _remoteHost);
+			_cgi.start(_request, cgiPath, fullPath, _port, _remoteHost, _locationConfig->getUploadDirectory());
 			_request.setState(S_CGI_PROCESSING);
 			return;
 		}

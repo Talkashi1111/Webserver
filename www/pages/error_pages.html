@@ -1,62 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-	<link rel="stylesheet" href="/style/style.css">
-	<link rel="stylesheet" href="/style/topnav.css">
-	<link rel="stylesheet" href="/style/footer.css">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Error Pages</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Annie+Use+Your+Telescope&family=Eczar:wght@400..800&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="../style/styles_tal.css">
 	<link rel="icon" href="/images/favicon.ico" type="image/x-icon">
-	<title>Webserv</title>
 </head>
-
 <body>
-	<header>
-		<h1>Webserv: a 42 project</h1>
-		<p1>Welcome to the Webserv project, a web server implementation.</p1>
+	<nav>
+		<ul>
+			<li><a href="../index.html">Home</a></li>
+			<li><a href="about.html">About</a></li>
+		</ul>
+	</nav>
 
-		<div class="topnav">
-			<a href="index.html">Home</a>
-			<a class="tablinks active" href="error_pages.html">Error Pages</a>
-			<a href="about.html">About</a>
-			<a href="contact.html">Contact</a>
+	<main>
+		<h2 class="annie-font">Error Pages</h2>
+		<p>Here are some error pages you can explore:</p>
+
+		<div class="features">
+			<div class="wrapper">
+				<h3 class="subtitle">400 Bad Request</h3>
+				<div class="line"></div>
+				<p>The server cannot or will not process the request due to an apparent client error.</p>
+				<a href="../error/400.html" class="button">View Error</a>
+			</div>
+
+			<div class="wrapper">
+				<h3 class="subtitle">403 Forbidden</h3>
+				<div class="line"></div>
+				<p>You do not have permission to access this resource.</p>
+				<a href="../error/403.html" class="button">View Error</a>
+			</div>
+
+			<div class="wrapper">
+				<h3 class="subtitle">404 Not Found</h3>
+				<div class="line"></div>
+				<p>The requested resource was not found on this server.</p>
+				<a href="../error/404.html" class="button">View Error</a>
+			</div>
+
+			<div class="wrapper">
+				<h3 class="subtitle">405 Method Not Allowed</h3>
+				<div class="line"></div>
+				<p>The request method is not supported for the requested resource.</p>
+				<a href="../error/405.html" class="button">View Error</a>
+			</div>
+
+			<div class="wrapper">
+				<h3 class="subtitle">418 I'm A Teapot</h3>
+				<div class="line"></div>
+				<p>The server refuses to brew coffee because it is a teapot.</p>
+				<a href="../error/418.html" class="button">View Error</a>
+			</div>
+
+			<div class="wrapper">
+				<h3 class="subtitle">500 Internal Server Error</h3>
+				<div class="line"></div>
+				<p>The server encountered an internal error and was unable to complete your request.</p>
+				<a href="../error/500.html" class="button">View Error</a>
+			</div>
+
+			<div class="wrapper">
+				<h3 class="subtitle">505 HTTP Version Not Supported</h3>
+				<div class="line"></div>
+				<p>The server does not support the HTTP protocol version used in the request.</p>
+				<a href="../error/505.html" class="button">View Error</a>
+			</div>
 		</div>
-	</header>
+	</main>
 
-	<h2>Error Pages!</h2>
-	<p1>Here are some error pages:</p1>
-
-	<div>
-	<h3><a href="error/400.html">400 Bad Request</a></h3>
-	<p2>The server cannot or will not process the request due to an apparent client error.</p2>
-
-
-	<h3><a href="error/403.html">403 Forbidden</a></h3>
-	<p2>You do not have permission to access this resource.</p2>
-
-
-	<h3><a href="error/404.html">404 Not Found</a></h3>
-	<p2>The requested resource was not found on this server.</p2>
-
-
-	<h3><a href="error/405.html">405 Method Not Allowed</a></h3>
-	<p2>The request method is not supported for the requested resource.</p2>
-
-
-	<h3><a href="error/418.html">418 I'm A Teapot</a></h3>
-	<p2>The server refuses to brew coffee because it is a teapot.</p2>
-
-
-	<h3><a href="error/500.html">500 Internal Server Error</a></h3>
-	<p2>The server encountered an internal error and was unable to complete your request.</p2>
-
-
-	<h3><a href="error/505.html">505 HTTP Version Not Supported</a></h3>
-	<p2>The server does not support the HTTP protocol version used in the request.</p2>
-	</div>
-
-	<div class="footer">
-		&copy; 2025 Eric Reymond & Tal Kashi
-	</div>
+	<footer>
+		<p>© 2025 Web Server Project. All rights reserved.</p>
+	</footer>
 </body>
-
 </html>

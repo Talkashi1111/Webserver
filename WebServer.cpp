@@ -1281,7 +1281,8 @@ void WebServer::handleClientRecv(int fd)
 		Connection *conn = _connections[fd];
 		buf[nbytes] = '\0';
 		conn->updateActivityTime();
-		RequestState state = conn->handleClientRecv(buf);
+		// Create a std::string with explicit length to handle binary data with null bytes
+		RequestState state = conn->handleClientRecv(std::string(buf, nbytes));
 		// If the request is done, send the response at next EPOLLOUT event
 		if (state == S_DONE || state == S_ERROR)
 		{

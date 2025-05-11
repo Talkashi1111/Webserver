@@ -1,15 +1,28 @@
 #include "Consts.hpp"
+#include <unistd.h>
+#include <limits.h>
+
+// Helper function to get current directory + /www
+std::string getCurrentDirPlusWww()
+{
+	char cwd[PATH_MAX];
+	if (getcwd(cwd, sizeof(cwd)) != NULL)
+	{
+		return std::string(cwd) + "/www";
+	}
+	return "/var/www/html"; // Fallback if getcwd fails
+}
 
 const std::string kDefaultConfig = "conf/default.conf";
-const int kMaxBuff = 8192; // 8k
+const int kMaxBuff = 65536; // 64k
 const std::string kDefaultHost = "0.0.0.0";
 const std::string kDefaultPort = "80";
 const std::string kDefaultListen = kDefaultHost + ":" + kDefaultPort;
 const std::string kDefaultServerName = "";
-const std::string kDefaultRoot = "/var/www/html";
+const std::string kDefaultRoot = getCurrentDirPlusWww();
 const int kDefaultClientTimeout = 75;
-const int kDefaultClientHeaderBufferSize = 2048; // 2k
-const size_t kDefaultClientMaxBodySize = 1048576;	 // 1m
+const int kDefaultClientHeaderBufferSize = 2048;  // 2k
+const size_t kDefaultClientMaxBodySize = 1048576; // 1m
 const bool kDefaultAutoindex = false;
 
 static std::pair<const std::string, bool> methodPairsArr[] = {

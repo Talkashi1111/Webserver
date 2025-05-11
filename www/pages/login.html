@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Annie+Use+Your+Telescope&family=Eczar:wght@400..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../style/styles_tal.css">
+    <script>
+        // Check if user already has a session cookie and redirect
+        function checkSession() {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'session_id' && value) {
+                    // If session cookie exists, redirect to login.py to check if it's valid
+                    window.location.href = '/cgi-bin/login.py';
+                    return;
+                }
+            }
+            // If no session cookie, show login form (it's already visible by default)
+        }
+
+        // Run the check when page loads
+        window.onload = checkSession;
+    </script>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="../index.html">Home</a></li>
+            <li><a href="about.html">About</a></li>
+        </ul>
+    </nav>
+    <main>
+        <h2 class="annie-font">Simple Login</h2>
+        <form action="../cgi-bin/login.py" method="post">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            <button type="submit">Login</button>
+        </form>
+    </main>
+    <footer>
+        <p>© 2025 Web Server Project. All rights reserved.</p>
+    </footer>
+</body>
+</html>
