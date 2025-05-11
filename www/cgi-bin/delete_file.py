@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import cgi
 import os
 import sys
 import html
@@ -46,14 +45,25 @@ def fail(msg, status="400 Bad Request"):
 	sys.exit()
 
 try:
-	# Parse the query string
-	form = cgi.FieldStorage()
+	# Check if the request method is DELETE
+	request_method = os.environ.get("REQUEST_METHOD", "")
 
-	# Get the filename to delete from the query parameter
-	if "filename" not in form:
+	if request_method != "DELETE":
+		fail(f"This script only accepts DELETE requests, got: {request_method}",
+			 status="405 Method Not Allowed")
+
+	# Parse the query string from QUERY_STRING environment variable
+	query_string = os.environ.get("QUERY_STRING", "")
+	if not query_string:
+		fail("No query parameters provided")
+
+	# Parse the query string to get the filename
+	query_params = urllib.parse.parse_qs(query_string)
+
+	if "filename" not in query_params:
 		fail("No filename specified for deletion")
 
-	filename = form.getvalue("filename")
+	filename = query_params["filename"][0]  # Get the first value for the filename parameter
 
 	# Get upload directory from environment variable or use default
 	upload_dir = os.environ.get("UPLOAD_DIR", "")
@@ -86,6 +96,7 @@ try:
 		os.unlink(file_path_real)
 
 		# Return success response
+		sys.stdout.write("Status: 200 OK\r\n")
 		sys.stdout.write("Content-Type: text/html; charset=UTF-8\r\n\r\n")
 		sys.stdout.write(f"""
 <!DOCTYPE html>

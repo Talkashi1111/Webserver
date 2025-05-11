@@ -232,7 +232,7 @@
 
 			// Send request to delete the file
 			fetch(`/cgi-bin/delete_file.py?filename=${encodeURIComponent(filename)}`, {
-				method: 'GET'
+				method: 'DELETE',
 			})
 			.then(response => {
 				if (!response.ok) {

@@ -41,6 +41,7 @@ endif
 ##############################################################################
 .PHONY: all
 all: $(NAME)
+	@mkdir -p www/uploads
 
 ##############################################################################
 #  build rules                                                               #
@@ -62,6 +63,7 @@ $(OBJDIR)/%.o: %.cpp
 .PHONY: clean fclean re
 clean:
 	rm -rf $(OBJDIR)
+	rm -f www/uploads/*
 
 fclean: clean
 	rm -f $(NAME) $(CLIENT)

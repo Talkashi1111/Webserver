@@ -701,7 +701,7 @@ void WebServer::handleServerDirective(const std::vector<std::string> &words, Ser
 			throw std::invalid_argument("Duplicate allowed_methods directive");
 		for (size_t i = 1; i < words.size(); ++i)
 		{
-			if (kDefaultAllowedMethods.find(words[i]) == kDefaultAllowedMethods.end())
+			if (words[i] != "GET" && words[i] != "POST" && words[i] != "DELETE")
 				throw std::invalid_argument("Invalid method in allowed_methods directive: " + words[i]);
 			curr_server->addAllowedMethod(words[i]);
 		}
@@ -786,7 +786,7 @@ void WebServer::handleLocationDirective(const std::vector<std::string> &words, L
 			throw std::invalid_argument("Duplicate allowed_methods directive");
 		for (size_t i = 1; i < words.size(); ++i)
 		{
-			if (kDefaultAllowedMethods.find(words[i]) == kDefaultAllowedMethods.end())
+			if (words[i] != "GET" && words[i] != "POST" && words[i] != "DELETE")
 				throw std::invalid_argument("Invalid method in allowed_methods directive: " + words[i]);
 			curr_location->addAllowedMethod(words[i]);
 		}

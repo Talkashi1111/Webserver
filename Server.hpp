@@ -62,7 +62,7 @@ private:
 	std::string _root;									  // Default: "/var/www/html"
 	std::set<std::string> _index;						  // Default: "index.html"
 	std::map<int, std::string> _errorPages;				  // e.g., 404->"/404.html", 500/502/503/504->"/50x.html"
-	std::map<std::string, bool> _allowedMethods;		  // Default: GET, POST, DELETE
+	std::map<std::string, bool> _allowedMethods;		  // Default: GET
 	bool _autoindex;									  // Default: off (false)
 	std::map<std::string, std::string> _cgiBin;			  // Maps file extensions to CGI executables (e.g., ".pl" -> "/usr/bin/perl")
 	std::pair<std::string, std::string> _returnDirective; // e.g., <"301": "http://example.com/default">

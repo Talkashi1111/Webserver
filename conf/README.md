@@ -52,7 +52,7 @@ These defaults apply if a directive is not explicitly specified in a server bloc
 
 - **Allowed Methods**
   - **Context:** Server (or Location) block
-  - **Default:** `GET POST DELETE`
+  - **Default:** `GET`
   - **Purpose:** Specifies which HTTP methods are permitted.
 
 - **Autoindex**
@@ -235,7 +235,7 @@ Below is a summary of an example configuration:
 # - Default error pages:
 #    404             -> /404.html
 #    500 502 503 504 -> /50x.html
-# - Allowed methods: GET POST DELETE
+# - Allowed methods: GET
 # - Autoindex: off
 
 server {

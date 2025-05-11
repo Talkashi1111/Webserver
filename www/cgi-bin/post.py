@@ -9,9 +9,16 @@ Robust CGI handler for POST requests.
 
 import os, sys, cgi, cgitb, html, json, urllib.parse
 
+# Enable CGI traceback for development
 env_debug = os.environ.get("DEBUG", "")
 if env_debug == "1":
 	cgitb.enable()
+
+	# Print environment variables to stderr for debugging
+	sys.stderr.write("===== ENVIRONMENT VARIABLES =====\n")
+	for key, value in os.environ.items():
+		sys.stderr.write(f"{key}: {value}\n")
+	sys.stderr.write("================================\n")
 
 # --------------------------------------------------------------------- #
 # helpers
@@ -74,43 +81,72 @@ print("Content-Type: text/html\r\n\r\n")
 
 print(f"""<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Submission OK</title></head>
-<body style="font-family: sans-serif">
-  <h2>Parsed fields</h2>
-  <ul>
-	<li>username&nbsp;=&nbsp;{username}</li>
-	<li>email&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;{emailaddress}</li>
-  </ul>
-""")
-
-if env_debug == "1":
-	interesting = {k: v for k, v in os.environ.items()
-				if k.startswith(("REQUEST_", "CONTENT_", "HTTP_"))}
-
-	env_table = "\n".join(
-		f"<tr><th style=\"text-align:left\">{html.escape(k)}</th><td>{html.escape(v)}</td></tr>"
-		for k, v in sorted(interesting.items())
-	)
-
-	print("""
-	<h2>CGI environment snapshot</h2>
-	<table style="border-collapse:collapse;font-family:monospace">
-	<thead>
-		<tr><th style="text-align:left;padding:4px 8px;border-bottom:2px solid #ccc">
-			Variable</th>
-			<th style="text-align:left;padding:4px 8px;border-bottom:2px solid #ccc">
-			Value</th></tr>
-	</thead>
-	<tbody>
-	""" + env_table + """
-	</tbody>
-	</table>
-	""")
-
-print(f"""
-
-  <p><a href="../pages/post_demo.html">Back to form</a></p>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Submission OK</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Annie+Use+Your+Telescope&family=Eczar:wght@400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style/styles_tal.css">
+  <style>
+    .data-container {{
+      background-color: rgba(32, 126, 7, 0.05);
+      border-left: 4px solid #207e07;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }}
+    .data-row {{
+      display: flex;
+      margin-bottom: 10px;
+      align-items: center;
+    }}
+    .data-label {{
+      font-weight: bold;
+      width: 120px;
+      color: #444;
+      font-family: "Eczar", serif;
+    }}
+    .data-value {{
+      flex-grow: 1;
+      padding: 8px 12px;
+      background-color: #fff;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }}
+    .data-row:hover .data-value {{
+      transform: translateY(-2px);
+      box-shadow: 0 3px 8px rgba(32, 126, 7, 0.2);
+    }}
+  </style>
+</head>
+<body>
+  <nav>
+    <ul>
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../pages/about.html">About</a></li>
+    </ul>
+  </nav>
+  <main>
+    <h2 class="annie-font">Submission Successful</h2>
+    <div class="wrapper">
+      <h3 class="subtitle">Parsed fields</h3>
+      <div class="line"></div>
+      <div class="data-container">
+        <div class="data-row">
+          <div class="data-label">Username:</div>
+          <div class="data-value">{username}</div>
+        </div>
+        <div class="data-row">
+          <div class="data-label">Email:</div>
+          <div class="data-value">{emailaddress}</div>
+        </div>
+      </div>
+      <a href="../pages/post_demo.html" class="button">Back to form</a>
+    </div>
+  </main>
 </body>
 </html>""")
-#TODO: add a link to home page
-#TODO : add css file
+

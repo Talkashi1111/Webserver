@@ -26,9 +26,8 @@ const size_t kDefaultClientMaxBodySize = 1048576; // 1m
 const bool kDefaultAutoindex = false;
 
 static std::pair<const std::string, bool> methodPairsArr[] = {
-	std::make_pair("GET", true),
-	std::make_pair("POST", true),
-	std::make_pair("DELETE", true)};
+	std::make_pair("GET", true)
+};
 const std::map<std::string, bool> kDefaultAllowedMethods(
 	methodPairsArr,
 	methodPairsArr + sizeof(methodPairsArr) / sizeof(methodPairsArr[0]));

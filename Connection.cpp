@@ -831,10 +831,13 @@ void Connection::generateResponse()
 		{
 			std::string uri = _request.getTarget();
 			if (uri[uri.length() - 1] != '/')
+			{
 				uri += '/';
-			std::string redir = "http://" + _request.getHostName() + uri;
-			generateReturnDirectiveResponse("301", redir);
-			return;
+				std::string redir = "http://" + _request.getHostName() + uri;
+				generateReturnDirectiveResponse("301", redir);
+				return;
+			}
+			throw std::runtime_error("403");
 		}
 	}
 	else if (isFile(fullPath))
