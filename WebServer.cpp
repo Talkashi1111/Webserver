@@ -417,6 +417,8 @@ void WebServer::resolveAndAddListen(const std::string &listen, Server *server)
 
 		// If it's just [::] or [valid_ipv6], use default port
 		std::string resolved_address = "[" + host + "]:" + port;
+		if (server->isListenSet(resolved_address))
+			throw std::invalid_argument("Duplicate listen directive: " + resolved_address);
 		server->addListen(resolved_address);
 		return;
 	}
@@ -445,6 +447,8 @@ void WebServer::resolveAndAddListen(const std::string &listen, Server *server)
 			if (is_port)
 			{
 				std::string full_address = kDefaultHost + ":" + listen;
+				if (server->isListenSet(full_address))
+					throw std::invalid_argument("Duplicate listen directive: " + full_address);
 				server->addListen(full_address);
 				return;
 			}
@@ -494,6 +498,11 @@ void WebServer::resolveAndAddListen(const std::string &listen, Server *server)
 				resolved_address = straddr + ":" + port;
 			if (p->ai_family == AF_INET6) // IPv6
 				resolved_address = "[" + straddr + "]:" + port;
+			if (server->isListenSet(resolved_address))
+			{
+				freeaddrinfo(ai);
+				throw std::invalid_argument("Duplicate listen directive: " + resolved_address);
+			}
 			server->addListen(resolved_address);
 		}
 		freeaddrinfo(ai); // All done with this structure

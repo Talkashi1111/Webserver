@@ -101,6 +101,13 @@ const std::set<std::string> &Server::getListens() const
 	return _listens;
 }
 
+bool Server::isListenSet(const std::string &listen) const
+{
+	if (!_listensSet)
+		return false;
+	return _listens.find(listen) != _listens.end();
+}
+
 bool Server::isListensSet() const
 {
 	return _listensSet;

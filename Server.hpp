@@ -17,6 +17,7 @@ public:
 	// Setters / Getters
 	void addListen(const std::string &listen);
 	const std::set<std::string> &getListens() const;
+	bool isListenSet(const std::string &listen) const;
 	bool isListensSet() const;
 
 	void addServerName(const std::string &name);
